@@ -3,6 +3,7 @@ using UnityEngine;
 public class Goal : MonoBehaviour
 {
     [Header("Goal Settings")]
+    public GameObject ballPrefab; // Ball prefab to instantiate
     public int goalOwner = 1; // 1 for Player 1's goal, 2 for Player 2's goal
     public float resetDelay = 2f;
     
@@ -19,11 +20,11 @@ public class Goal : MonoBehaviour
         Ball ball = other.GetComponent<Ball>();
         if (ball != null)
         {
-            ScoreGoal();
+            ScoreGoal(ball);
         }
     }
     
-    void ScoreGoal()
+    void ScoreGoal(Ball ball)
     {
         if (goalScored) return;
         
@@ -41,6 +42,8 @@ public class Goal : MonoBehaviour
         
         PlayGoalEffects();
         
+        // Make ball disappear immediately
+        Destroy(ball.gameObject);        
         Invoke("ResetGoal", resetDelay);
     }
     
@@ -61,10 +64,26 @@ public class Goal : MonoBehaviour
     {
         goalScored = false;
         
-        Ball ball = FindObjectOfType<Ball>();
-        if (ball != null)
+        // Spawn a new ball
+        if (ballPrefab != null)
         {
-            ball.ResetBall();
+            Planet planet = FindObjectOfType<Planet>();
+            Vector3 spawnPosition = planet != null ? 
+                planet.center.position + Vector3.up * (planet.radius + 1f) : 
+                Vector3.zero;
+            
+            GameObject newBall = Instantiate(ballPrefab, spawnPosition, Quaternion.identity);
+            
+            // Make sure the new ball is reset
+            Ball ballComponent = newBall.GetComponent<Ball>();
+            if (ballComponent != null)
+            {
+                ballComponent.ResetBall();
+            }
+        }
+        else
+        {
+            Debug.LogWarning("No ball prefab assigned to Goal!");
         }
     }
     
