@@ -65,6 +65,7 @@ public class Ball : MonoBehaviour
             trail.startWidth = 0.2f;
             trail.endWidth = 0.05f;
             trail.material = new Material(Shader.Find("Sprites/Default"));
+            trail.enabled = false;
         }
     }
     
@@ -137,6 +138,7 @@ public class Ball : MonoBehaviour
             float kickStrength = 8f + playerVelocity.magnitude * 0.5f;
             
             rb.AddForce(finalKickDirection * kickStrength, ForceMode2D.Impulse);
+            ActivateTrail();
             
             Debug.Log($"Ball kicked by Player {player.playerNumber}. Direction: {finalKickDirection}, Strength: {kickStrength}");
         }
@@ -179,6 +181,25 @@ public class Ball : MonoBehaviour
     public void AddForce(Vector2 force)
     {
         rb.AddForce(force, ForceMode2D.Impulse);
+    }
+    
+    public void ActivateTrail()
+    {
+        if (trail != null)
+        {
+            trail.enabled = true;
+            trail.Clear();
+            StartCoroutine(DeactivateTrailAfterTime());
+        }
+    }
+    
+    System.Collections.IEnumerator DeactivateTrailAfterTime()
+    {
+        yield return new WaitForSeconds(trailTime);
+        if (trail != null)
+        {
+            trail.enabled = false;
+        }
     }
     
     void OnDrawGizmos()

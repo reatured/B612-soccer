@@ -9,16 +9,17 @@ public class GameManager : MonoBehaviour
     public int winningScore = 5;
     
     [Header("Time Settings")]
-    public float matchTime = 300f; // 5 minutes in seconds
+    public float matchTime = 60f; // 1 minute in seconds
     public bool useTimer = true;
     
     [Header("UI References")]
-    public Text player1ScoreText;
-    public Text player2ScoreText;
+    public Text combinedScoreText; // Format: "0 : 0"
     public Text timerText;
     public Text gameOverText;
     public Text winnerText;
     public Button restartButton;
+    public GameObject pauseMenu;
+    public GameObject tutorialPopup;
     
     [Header("Game State")]
     public bool gameActive = true;
@@ -56,6 +57,16 @@ public class GameManager : MonoBehaviour
         if (Input.GetKeyDown(KeyCode.R))
         {
             RestartGame();
+        }
+        
+        if (Input.GetKeyDown(KeyCode.Escape))
+        {
+            TogglePause();
+        }
+        
+        if (Input.GetKeyDown(KeyCode.T))
+        {
+            ToggleTutorial();
         }
     }
     
@@ -120,10 +131,8 @@ public class GameManager : MonoBehaviour
     
     void UpdateUI()
     {
-        if (player1ScoreText != null)
-            player1ScoreText.text = player1Score.ToString();
-        if (player2ScoreText != null)
-            player2ScoreText.text = player2Score.ToString();
+        if (combinedScoreText != null)
+            combinedScoreText.text = $"{player1Score} : {player2Score}";
     }
     
     void EndGameByScore()
@@ -209,11 +218,30 @@ public class GameManager : MonoBehaviour
         Debug.Log("Game restarted!");
     }
     
+    public void TogglePause()
+    {
+        if (pauseMenu != null)
+        {
+            bool isPaused = pauseMenu.activeInHierarchy;
+            pauseMenu.SetActive(!isPaused);
+            Time.timeScale = isPaused ? 1f : 0f;
+        }
+    }
+    
+    public void ToggleTutorial()
+    {
+        if (tutorialPopup != null)
+        {
+            tutorialPopup.SetActive(!tutorialPopup.activeInHierarchy);
+        }
+    }
+    
     void OnGUI()
     {
         if (!gameActive)
         {
             GUI.Label(new Rect(10, 10, 200, 30), "Press R to Restart");
         }
+        GUI.Label(new Rect(10, 50, 200, 30), "ESC: Pause | T: Tutorial");
     }
 }

@@ -493,28 +493,6 @@
                     "isComposite": false,
                     "isPartOfComposite": false
                 },
-                {
-                    "name": "",
-                    "id": "kick-s-key",
-                    "path": "<Keyboard>/s",
-                    "interactions": "",
-                    "processors": "",
-                    "groups": "Keyboard&Mouse",
-                    "action": "Kick",
-                    "isComposite": false,
-                    "isPartOfComposite": false
-                },
-                {
-                    "name": "",
-                    "id": "kick-down-arrow",
-                    "path": "<Keyboard>/downArrow",
-                    "interactions": "",
-                    "processors": "",
-                    "groups": "Keyboard&Mouse",
-                    "action": "Kick",
-                    "isComposite": false,
-                    "isPartOfComposite": false
-                }
             ]
         },
         {
@@ -539,15 +517,6 @@
                     "interactions": "",
                     "initialStateCheck": false
                 },
-                {
-                    "name": "Kick",
-                    "type": "Button",
-                    "id": "p1-kick-id",
-                    "expectedControlType": "Button",
-                    "processors": "",
-                    "interactions": "",
-                    "initialStateCheck": false
-                }
             ],
             "bindings": [
                 {
@@ -629,15 +598,6 @@
                     "interactions": "",
                     "initialStateCheck": false
                 },
-                {
-                    "name": "Kick",
-                    "type": "Button",
-                    "id": "p2-kick-id",
-                    "expectedControlType": "Button",
-                    "processors": "",
-                    "interactions": "",
-                    "initialStateCheck": false
-                }
             ],
             "bindings": [
                 {

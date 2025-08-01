@@ -5,8 +5,7 @@ public class Player : MonoBehaviour
     [Header("Player Settings")]
     public int playerNumber = 1;
     public float moveSpeed = 3f;
-    public float kickForce = 10f;
-    public float kickRange = 1.5f;
+    public float collisionKickForce = 15f;
     public float jumpForce = 8f;
     public float gravityStrength = 50f;
     
@@ -15,14 +14,25 @@ public class Player : MonoBehaviour
     public float groundCheckDistance = 1.0f;
     public float groundCheckRadius = 0.3f;
     
+    [Header("Audio")]
+    public AudioSource audioSource;
+    public AudioClip kickBallSound;
+    public AudioClip jumpSound;
+    public AudioClip landSound;
+    public AudioClip moveSound;
+    
+    [Header("Power-ups")]
+    public float powerKickMultiplier = 1f;
+    public float sizeMultiplier = 1f;
+    public float jumpMultiplier = 1f;
+    public float powerUpDuration = 5f;
+    
     [Header("Controls")]
     public KeyCode leftKey = KeyCode.A;
     public KeyCode rightKey = KeyCode.D;
     public KeyCode jumpKey = KeyCode.W;
-    public KeyCode kickKey = KeyCode.S;
     
     private Planet planet;
-    private float currentAngle;
     private Rigidbody2D rb;
     private bool isGrounded;
     private Vector2 lastGroundNormal;
@@ -44,12 +54,12 @@ public class Player : MonoBehaviour
         
         spriteRenderer = GetComponent<SpriteRenderer>();
         
+        if (audioSource == null)
+            audioSource = GetComponent<AudioSource>();
+        if (audioSource == null)
+            audioSource = gameObject.AddComponent<AudioSource>();
+            
         SetupPlayerKeys();
-        
-        if (planet != null)
-        {
-            currentAngle = planet.GetAngleFromPosition(transform.position);
-        }
     }
     
     void SetupPlayerKeys()
@@ -59,14 +69,12 @@ public class Player : MonoBehaviour
             leftKey = KeyCode.A;
             rightKey = KeyCode.D;
             jumpKey = KeyCode.W;
-            kickKey = KeyCode.S;
         }
         else if (playerNumber == 2)
         {
             leftKey = KeyCode.LeftArrow;
             rightKey = KeyCode.RightArrow;
             jumpKey = KeyCode.UpArrow;
-            kickKey = KeyCode.DownArrow;
         }
     }
     
@@ -82,6 +90,7 @@ public class Player : MonoBehaviour
         {
             ApplyPlanetGravity();
             OrientToPlanet();
+            EnforcePlayerBoundaries();
         }
     }
     
@@ -145,15 +154,16 @@ public class Player : MonoBehaviour
             }
         }
         
-        if (Input.GetKeyDown(kickKey))
-        {
-            TryKickBall();
-        }
     }
     
     void MoveAroundPlanet(float direction)
     {
         if (planet == null) return;
+        
+        if (!CanMoveInDirection(direction))
+        {
+            return;
+        }
         
         Vector2 directionToPlanet = ((Vector2)planet.center.position - (Vector2)transform.position).normalized;
         Vector2 tangentDirection;
@@ -189,6 +199,33 @@ public class Player : MonoBehaviour
         }
     }
     
+    bool CanMoveInDirection(float direction)
+    {
+        if (planet == null) return true;
+        
+        Vector2 playerPosition = transform.position;
+        Vector2 planetCenter = planet.center.position;
+        
+        float currentAngle = Mathf.Atan2(playerPosition.y - planetCenter.y, playerPosition.x - planetCenter.x);
+        
+        if (playerNumber == 1)
+        {
+            if (direction > 0 && currentAngle < 0.5f && currentAngle > -0.5f)
+            {
+                return false;
+            }
+        }
+        else if (playerNumber == 2)
+        {
+            if (direction < 0 && (currentAngle > 2.64f || currentAngle < -2.64f))
+            {
+                return false;
+            }
+        }
+        
+        return true;
+    }
+    
     void ApplyPlanetGravity()
     {
         Vector2 directionToPlanet = (Vector2)planet.center.position - (Vector2)transform.position;
@@ -211,7 +248,8 @@ public class Player : MonoBehaviour
         Vector2 jumpDirection = -directionToPlanet;
         
         Debug.Log($"Player {playerNumber} jumping. Direction: {jumpDirection}, Force: {jumpForce}");
-        rb.AddForce(jumpDirection * jumpForce, ForceMode2D.Impulse);
+        rb.AddForce(jumpDirection * jumpForce * jumpMultiplier, ForceMode2D.Impulse);
+        PlaySound(jumpSound);
     }
     
     void OrientToPlanet()
@@ -234,53 +272,42 @@ public class Player : MonoBehaviour
         }
     }
     
-    void TryKickBall()
+    void OnCollisionEnter2D(Collision2D collision)
     {
-        Ball ballComponent = FindObjectOfType<Ball>();
-        if (ballComponent == null) return;
-        
-        GameObject ball = ballComponent.gameObject;
-        float distanceToBall = Vector2.Distance(transform.position, ball.transform.position);
-        
-        if (distanceToBall <= kickRange)
+        Ball ball = collision.gameObject.GetComponent<Ball>();
+        if (ball != null && collision.contacts.Length > 0)
         {
-            KickBall(ball);
+            KickBallOnCollision(collision, ball);
         }
     }
     
-    void KickBall(GameObject ball)
+    void KickBallOnCollision(Collision2D collision, Ball ball)
     {
-        Rigidbody2D ballRb = ball.GetComponent<Rigidbody2D>();
-        if (ballRb == null || planet == null) return;
+        ContactPoint2D contact = collision.contacts[0];
+        Vector2 collisionNormal = contact.normal;
         
-        Vector2 playerToBall = (ball.transform.position - transform.position).normalized;
-        Vector2 directionToPlanet = ((Vector2)planet.center.position - (Vector2)transform.position).normalized;
+        Vector2 kickDirection = -collisionNormal;
         
-        Vector2 playerSurfaceNormal = -directionToPlanet;
+        Vector2 playerVelocity = rb.linearVelocity;
+        Vector2 relativeVelocity = playerVelocity - ball.GetComponent<Rigidbody2D>().linearVelocity;
         
-        Vector2 kickDirection = Vector2.Reflect(playerToBall, playerSurfaceNormal);
+        float velocityMagnitude = relativeVelocity.magnitude;
+        float kickStrength = (collisionKickForce + velocityMagnitude * 1.5f) * powerKickMultiplier;
         
-        Vector2 playerMovement = rb.linearVelocity;
-        Vector2 tangentDirection = Vector2.Perpendicular(directionToPlanet);
-        
-        if (Vector2.Dot(playerMovement, tangentDirection) < 0)
+        Vector2 tangentDirection = Vector2.Perpendicular(collisionNormal);
+        if (Vector2.Dot(playerVelocity, tangentDirection) < 0)
             tangentDirection = -tangentDirection;
         
-        Vector2 finalKickDirection = (kickDirection + tangentDirection * 0.3f).normalized;
+        Vector2 finalKickDirection = (kickDirection + tangentDirection * 0.4f).normalized;
         
-        float dynamicKickForce = kickForce + rb.linearVelocity.magnitude * 2f;
+        ball.GetComponent<Rigidbody2D>().AddForce(finalKickDirection * kickStrength, ForceMode2D.Impulse);
+        ball.ActivateTrail();
+        PlaySound(kickBallSound);
         
-        ballRb.AddForce(finalKickDirection * dynamicKickForce, ForceMode2D.Impulse);
-        
-        Debug.Log($"Player {playerNumber} kicked the ball! Direction: {finalKickDirection}, Force: {dynamicKickForce}");
+        Debug.Log($"Player {playerNumber} collided with ball! Normal: {collisionNormal}, Kick Direction: {finalKickDirection}, Force: {kickStrength}");
     }
     
     
-    void OnDrawGizmosSelected()
-    {
-        Gizmos.color = Color.red;
-        DrawWireCircle(transform.position, kickRange);
-    }
     
     void DrawWireCircle(Vector3 center, float radius)
     {
@@ -311,6 +338,43 @@ public class Player : MonoBehaviour
         }
     }
     
+    void EnforcePlayerBoundaries()
+    {
+        if (planet == null) return;
+        
+        Vector2 playerPosition = transform.position;
+        Vector2 planetCenter = planet.center.position;
+        
+        float currentAngle = Mathf.Atan2(playerPosition.y - planetCenter.y, playerPosition.x - planetCenter.x);
+        
+        bool needsCorrection = false;
+        float targetAngle = currentAngle;
+        
+        if (playerNumber == 1)
+        {
+            if (currentAngle < 0.5f && currentAngle > -0.5f)
+            {
+                targetAngle = currentAngle > 0 ? 0.5f : -0.5f;
+                needsCorrection = true;
+            }
+        }
+        else if (playerNumber == 2)
+        {
+            if (currentAngle > 2.64f || currentAngle < -2.64f)
+            {
+                targetAngle = currentAngle > 0 ? 2.64f : -2.64f;
+                needsCorrection = true;
+            }
+        }
+        
+        if (needsCorrection)
+        {
+            float distanceFromCenter = Vector2.Distance(playerPosition, planetCenter);
+            Vector2 correctedPosition = planetCenter + new Vector2(Mathf.Cos(targetAngle), Mathf.Sin(targetAngle)) * distanceFromCenter;
+            transform.position = correctedPosition;
+        }
+    }
+    
     void OnDrawGizmos()
     {
         if (planet == null) return;
@@ -322,5 +386,65 @@ public class Player : MonoBehaviour
         
         Gizmos.color = Color.yellow;
         Gizmos.DrawWireSphere(transform.position, groundCheckRadius);
+        
+        if (planet.center != null)
+        {
+            Gizmos.color = playerNumber == 1 ? Color.blue : Color.red;
+            Vector2 center = planet.center.position;
+            float radius = planet.radius + planet.playerOffset;
+            
+            if (playerNumber == 1)
+            {
+                Vector3 start1 = center + new Vector2(Mathf.Cos(-0.5f), Mathf.Sin(-0.5f)) * radius;
+                Vector3 start2 = center + new Vector2(Mathf.Cos(0.5f), Mathf.Sin(0.5f)) * radius;
+                Gizmos.DrawLine(center, start1);
+                Gizmos.DrawLine(center, start2);
+            }
+            else
+            {
+                Vector3 start1 = center + new Vector2(Mathf.Cos(-2.64f), Mathf.Sin(-2.64f)) * radius;
+                Vector3 start2 = center + new Vector2(Mathf.Cos(2.64f), Mathf.Sin(2.64f)) * radius;
+                Gizmos.DrawLine(center, start1);
+                Gizmos.DrawLine(center, start2);
+            }
+        }
     }
-}
+}    
+    void PlaySound(AudioClip clip)
+    {
+        if (audioSource \!= null && clip \!= null)
+        {
+            audioSource.PlayOneShot(clip);
+        }
+    }
+    
+    public void ApplyPowerUp(PowerUpType powerUpType)
+    {
+        StopCoroutine(nameof(PowerUpCoroutine));
+        StartCoroutine(PowerUpCoroutine(powerUpType));
+    }
+    
+    System.Collections.IEnumerator PowerUpCoroutine(PowerUpType powerUpType)
+    {
+        switch (powerUpType)
+        {
+            case PowerUpType.PowerfulKick:
+                powerKickMultiplier = 2f;
+                break;
+            case PowerUpType.BiggerBody:
+                sizeMultiplier = 1.5f;
+                transform.localScale = Vector3.one * sizeMultiplier;
+                break;
+            case PowerUpType.HigherJump:
+                jumpMultiplier = 2f;
+                break;
+        }
+        
+        yield return new WaitForSeconds(powerUpDuration);
+        
+        powerKickMultiplier = 1f;
+        sizeMultiplier = 1f;
+        jumpMultiplier = 1f;
+        transform.localScale = Vector3.one;
+    }
+EOF < /dev/null

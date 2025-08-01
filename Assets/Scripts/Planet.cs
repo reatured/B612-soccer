@@ -23,12 +23,12 @@ public class Planet : MonoBehaviour
     {
         if (player1 != null)
         {
-            PositionPlayerOnPlanet(player1, 0f);
+            PositionPlayerOnPlanet(player1, Mathf.PI);
         }
         
         if (player2 != null)
         {
-            PositionPlayerOnPlanet(player2, Mathf.PI);
+            PositionPlayerOnPlanet(player2, 0f);
         }
     }
     
