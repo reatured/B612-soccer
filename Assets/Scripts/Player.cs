@@ -409,10 +409,10 @@ public class Player : MonoBehaviour
             }
         }
     }
-}    
+    
     void PlaySound(AudioClip clip)
     {
-        if (audioSource \!= null && clip \!= null)
+        if (audioSource != null && clip != null)
         {
             audioSource.PlayOneShot(clip);
         }
@@ -447,4 +447,4 @@ public class Player : MonoBehaviour
         jumpMultiplier = 1f;
         transform.localScale = Vector3.one;
     }
-EOF < /dev/null
+}
