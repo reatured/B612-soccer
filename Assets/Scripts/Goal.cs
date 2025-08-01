@@ -3,7 +3,7 @@ using UnityEngine;
 public class Goal : MonoBehaviour
 {
     [Header("Goal Settings")]
-    public GameObject ballPrefab; // Ball prefab to instantiate
+    public BallSpawner ballSpawner; // Reference to ball spawner
     public int goalOwner = 1; // 1 for Player 1's goal, 2 for Player 2's goal
     public float resetDelay = 2f;
     
@@ -64,26 +64,14 @@ public class Goal : MonoBehaviour
     {
         goalScored = false;
         
-        // Spawn a new ball
-        if (ballPrefab != null)
+        // Spawn a new ball using the ball spawner
+        if (ballSpawner != null)
         {
-            Planet planet = FindObjectOfType<Planet>();
-            Vector3 spawnPosition = planet != null ? 
-                planet.center.position + Vector3.up * (planet.radius + 1f) : 
-                Vector3.zero;
-            
-            GameObject newBall = Instantiate(ballPrefab, spawnPosition, Quaternion.identity);
-            
-            // Make sure the new ball is reset
-            Ball ballComponent = newBall.GetComponent<Ball>();
-            if (ballComponent != null)
-            {
-                ballComponent.ResetBall();
-            }
+            ballSpawner.SpawnBall();
         }
         else
         {
-            Debug.LogWarning("No ball prefab assigned to Goal!");
+            Debug.LogWarning("No ball spawner assigned to Goal!");
         }
     }
     

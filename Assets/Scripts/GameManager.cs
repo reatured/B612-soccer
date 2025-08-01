@@ -2,6 +2,14 @@ using UnityEngine;
 using UnityEngine.UI;
 using TMPro;
 
+public enum GameStage
+{
+    MainMenu,    // Stage 1: Starting menu with start button
+    Playing,     // Stage 2: Actual gameplay
+    Paused,      // Stage 3: Paused state
+    GameOver     // Stage 4: Game over state
+}
+
 public class GameManager : MonoBehaviour
 {
     [Header("Score Settings")]
@@ -13,61 +21,175 @@ public class GameManager : MonoBehaviour
     public float matchTime = 60f; // 1 minute in seconds
     public bool useTimer = true;
     
-    [Header("UI References")]
+    [Header("UI References - Main Menu")]
+    public Button startButton;
+    public TextMeshProUGUI titleText;
+    
+    [Header("UI References - Gameplay")]
     public TextMeshProUGUI combinedScoreText; // Format: "0 : 0"
     public TextMeshProUGUI timerText;
+    
+    [Header("UI References - Pause Menu")]
+    public GameObject pauseMenu;
+    public Button resumeButton;
+    public TextMeshProUGUI tutorialText;
+    
+    [Header("UI References - Game Over")]
     public TextMeshProUGUI gameOverText;
     public TextMeshProUGUI winnerText;
     public Button restartButton;
-    public GameObject pauseMenu;
-    public GameObject tutorialPopup;
     
     [Header("Game State")]
-    public bool gameActive = true;
+    public GameStage currentStage = GameStage.MainMenu;
+    public bool gameActive = false;
     
     private float currentTime;
     
     void Start()
     {
         currentTime = matchTime;
-        gameActive = true;
+        SetGameStage(GameStage.MainMenu);
         
-        UpdateUI();
-        
+        // Setup button listeners
+        if (startButton != null)
+            startButton.onClick.AddListener(StartGame);
+        if (resumeButton != null)
+            resumeButton.onClick.AddListener(ResumeGame);
         if (restartButton != null)
-        {
             restartButton.onClick.AddListener(RestartGame);
-            restartButton.gameObject.SetActive(false);
-        }
-        
-        if (gameOverText != null)
-            gameOverText.gameObject.SetActive(false);
-        if (winnerText != null)
-            winnerText.gameObject.SetActive(false);
     }
     
     void Update()
     {
-        if (!gameActive) return;
-        
-        if (useTimer)
+        // Handle input based on current stage
+        switch (currentStage)
         {
-            UpdateTimer();
+            case GameStage.MainMenu:
+                // No special input handling needed, button handles start
+                break;
+                
+            case GameStage.Playing:
+                if (useTimer && gameActive)
+                {
+                    UpdateTimer();
+                }
+                
+                // Pause game with Escape
+                if (Input.GetKeyDown(KeyCode.Escape))
+                {
+                    PauseGame();
+                }
+                break;
+                
+            case GameStage.Paused:
+                // Resume with Escape
+                if (Input.GetKeyDown(KeyCode.Escape))
+                {
+                    ResumeGame();
+                }
+                break;
+                
+            case GameStage.GameOver:
+                // Game over input handled by restart button
+                break;
+        }
+    }
+    
+    void SetGameStage(GameStage newStage)
+    {
+        currentStage = newStage;
+        UpdateUIVisibility();
+        
+        switch (newStage)
+        {
+            case GameStage.MainMenu:
+                gameActive = false;
+                Time.timeScale = 1f;
+                break;
+                
+            case GameStage.Playing:
+                gameActive = true;
+                Time.timeScale = 1f;
+                break;
+                
+            case GameStage.Paused:
+                gameActive = false;
+                Time.timeScale = 0f;
+                break;
+                
+            case GameStage.GameOver:
+                gameActive = false;
+                Time.timeScale = 1f; // Don't pause time in game over
+                break;
+        }
+    }
+    
+    void UpdateUIVisibility()
+    {
+        // Main Menu UI
+        if (startButton != null)
+            startButton.gameObject.SetActive(currentStage == GameStage.MainMenu);
+        if (titleText != null)
+            titleText.gameObject.SetActive(currentStage == GameStage.MainMenu);
+        
+        // Gameplay UI
+        if (combinedScoreText != null)
+            combinedScoreText.gameObject.SetActive(currentStage == GameStage.Playing);
+        if (timerText != null)
+            timerText.gameObject.SetActive(currentStage == GameStage.Playing);
+        
+        // Pause Menu UI
+        if (pauseMenu != null)
+            pauseMenu.SetActive(currentStage == GameStage.Paused);
+        if (tutorialText != null)
+            tutorialText.gameObject.SetActive(currentStage == GameStage.Paused);
+        
+        // Game Over UI
+        if (gameOverText != null)
+            gameOverText.gameObject.SetActive(currentStage == GameStage.GameOver);
+        if (winnerText != null)
+            winnerText.gameObject.SetActive(currentStage == GameStage.GameOver);
+        if (restartButton != null)
+            restartButton.gameObject.SetActive(currentStage == GameStage.GameOver);
+    }
+    
+    public void StartGame()
+    {
+        // Reset game state
+        player1Score = 0;
+        player2Score = 0;
+        currentTime = matchTime;
+        
+        // Start playing
+        SetGameStage(GameStage.Playing);
+        UpdateUI();
+        
+        // Spawn ball if there's a spawner
+        BallSpawner spawner = FindObjectOfType<BallSpawner>();
+        if (spawner != null)
+        {
+            spawner.DestroyAllBalls();
+            spawner.SpawnBall();
         }
         
-        if (Input.GetKeyDown(KeyCode.R))
+        Debug.Log("Game Started!");
+    }
+    
+    public void PauseGame()
+    {
+        if (currentStage == GameStage.Playing)
         {
-            RestartGame();
+            SetGameStage(GameStage.Paused);
+            Debug.Log("Game Paused");
         }
-        
-        if (Input.GetKeyDown(KeyCode.Escape))
+    }
+    
+    public void ResumeGame()
+    {
+        if (currentStage == GameStage.Paused)
         {
-            TogglePause();
-        }
-        
-        if (Input.GetKeyDown(KeyCode.T))
-        {
-            ToggleTutorial();
+            SetGameStage(GameStage.Playing);
+            Debug.Log("Game Resumed");
         }
     }
     
@@ -93,11 +215,11 @@ public class GameManager : MonoBehaviour
         
         timerText.text = string.Format("{0:00}:{1:00}", minutes, seconds);
         
-        if (currentTime <= 30f)
+        if (currentTime <= 10f)
         {
             timerText.color = Color.red;
         }
-        else if (currentTime <= 60f)
+        else if (currentTime <= 30f)
         {
             timerText.color = Color.yellow;
         }
@@ -109,7 +231,7 @@ public class GameManager : MonoBehaviour
     
     public void PlayerScored(int playerNumber)
     {
-        if (!gameActive) return;
+        if (!gameActive || currentStage != GameStage.Playing) return;
         
         if (playerNumber == 1)
         {
@@ -138,8 +260,6 @@ public class GameManager : MonoBehaviour
     
     void EndGameByScore()
     {
-        gameActive = false;
-        
         string winner = player1Score >= winningScore ? "Player 1" : "Player 2";
         
         Debug.Log($"Game Over! {winner} wins with {winningScore} goals!");
@@ -149,8 +269,6 @@ public class GameManager : MonoBehaviour
     
     void EndGameByTime()
     {
-        gameActive = false;
-        
         string result;
         if (player1Score > player2Score)
         {
@@ -167,82 +285,42 @@ public class GameManager : MonoBehaviour
         
         Debug.Log($"Time's up! {result} Final Score: {player1Score} - {player2Score}");
         
-        ShowGameOver("Time's Up!", $"{result}\\nFinal Score: {player1Score} - {player2Score}");
+        ShowGameOver("Time's Up!", $"{result}\nFinal Score: {player1Score} - {player2Score}");
     }
     
     void ShowGameOver(string gameOverMessage, string winnerMessage)
     {
+        SetGameStage(GameStage.GameOver);
+        
         if (gameOverText != null)
         {
             gameOverText.text = gameOverMessage;
-            gameOverText.gameObject.SetActive(true);
         }
         
         if (winnerText != null)
         {
             winnerText.text = winnerMessage;
-            winnerText.gameObject.SetActive(true);
         }
-        
-        if (restartButton != null)
-        {
-            restartButton.gameObject.SetActive(true);
-        }
-        
-        Time.timeScale = 0.1f;
     }
     
     public void RestartGame()
     {
-        Time.timeScale = 1f;
-        
-        player1Score = 0;
-        player2Score = 0;
-        currentTime = matchTime;
-        gameActive = true;
-        
-        UpdateUI();
-        
-        if (gameOverText != null)
-            gameOverText.gameObject.SetActive(false);
-        if (winnerText != null)
-            winnerText.gameObject.SetActive(false);
-        if (restartButton != null)
-            restartButton.gameObject.SetActive(false);
-        
-        Ball ball = FindObjectOfType<Ball>();
-        if (ball != null)
-        {
-            ball.ResetBall();
-        }
-        
-        Debug.Log("Game restarted!");
-    }
-    
-    public void TogglePause()
-    {
-        if (pauseMenu != null)
-        {
-            bool isPaused = pauseMenu.activeInHierarchy;
-            pauseMenu.SetActive(!isPaused);
-            Time.timeScale = isPaused ? 1f : 0f;
-        }
-    }
-    
-    public void ToggleTutorial()
-    {
-        if (tutorialPopup != null)
-        {
-            tutorialPopup.SetActive(!tutorialPopup.activeInHierarchy);
-        }
+        SetGameStage(GameStage.MainMenu);
+        Debug.Log("Returned to Main Menu");
     }
     
     void OnGUI()
     {
-        if (!gameActive)
+        // Show debug info
+        GUI.Label(new Rect(10, 10, 200, 30), $"Stage: {currentStage}");
+        
+        if (currentStage == GameStage.Playing)
         {
-            GUI.Label(new Rect(10, 10, 200, 30), "Press R to Restart");
+            GUI.Label(new Rect(10, 30, 200, 30), "ESC: Pause");
         }
-        GUI.Label(new Rect(10, 50, 200, 30), "ESC: Pause | T: Tutorial");
+        else if (currentStage == GameStage.Paused)
+        {
+            GUI.Label(new Rect(10, 30, 200, 30), "ESC: Resume");
+        }
     }
 }

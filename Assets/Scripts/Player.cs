@@ -117,7 +117,7 @@ public class Player : MonoBehaviour
             rb.linearVelocity *= 0.8f;
         }
         
-        Debug.Log($"Player {playerNumber} - Distance to surface: {surfaceDistance:F2}, Grounded: {isGrounded}");
+        // Debug.Log($"Player {playerNumber} - Distance to surface: {surfaceDistance:F2}, Grounded: {isGrounded}");
     }
     
     void HandleInput()
@@ -150,7 +150,7 @@ public class Player : MonoBehaviour
             }
             else
             {
-                Debug.Log($"Player {playerNumber} tried to jump in air - blocked!");
+                // Debug.Log($"Player {playerNumber} tried to jump in air - blocked!");
             }
         }
         
@@ -236,7 +236,7 @@ public class Player : MonoBehaviour
         
         if (Time.fixedTime % 1f < Time.fixedDeltaTime)
         {
-            Debug.Log($"Player {playerNumber} gravity: {gravityForce}, distance: {distanceToCenter}");
+            // Debug.Log($"Player {playerNumber} gravity: {gravityForce}, distance: {distanceToCenter}");
         }
     }
     
@@ -247,7 +247,7 @@ public class Player : MonoBehaviour
         Vector2 directionToPlanet = ((Vector2)planet.center.position - (Vector2)transform.position).normalized;
         Vector2 jumpDirection = -directionToPlanet;
         
-        Debug.Log($"Player {playerNumber} jumping. Direction: {jumpDirection}, Force: {jumpForce}");
+        //Debug.Log($"Player {playerNumber} jumping. Direction: {jumpDirection}, Force: {jumpForce}");
         rb.AddForce(jumpDirection * jumpForce * jumpMultiplier, ForceMode2D.Impulse);
         PlaySound(jumpSound);
     }
@@ -304,7 +304,7 @@ public class Player : MonoBehaviour
         ball.ActivateTrail();
         PlaySound(kickBallSound);
         
-        Debug.Log($"Player {playerNumber} collided with ball! Normal: {collisionNormal}, Kick Direction: {finalKickDirection}, Force: {kickStrength}");
+        // Debug.Log($"Player {playerNumber} collided with ball! Normal: {collisionNormal}, Kick Direction: {finalKickDirection}, Force: {kickStrength}");
     }
     
     
