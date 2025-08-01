@@ -1,5 +1,6 @@
 using UnityEngine;
 using UnityEngine.UI;
+using TMPro;
 
 public class GameManager : MonoBehaviour
 {
@@ -13,10 +14,10 @@ public class GameManager : MonoBehaviour
     public bool useTimer = true;
     
     [Header("UI References")]
-    public Text combinedScoreText; // Format: "0 : 0"
-    public Text timerText;
-    public Text gameOverText;
-    public Text winnerText;
+    public TextMeshProUGUI combinedScoreText; // Format: "0 : 0"
+    public TextMeshProUGUI timerText;
+    public TextMeshProUGUI gameOverText;
+    public TextMeshProUGUI winnerText;
     public Button restartButton;
     public GameObject pauseMenu;
     public GameObject tutorialPopup;
