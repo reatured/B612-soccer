@@ -32,7 +32,7 @@ public class GameManager : MonoBehaviour
     [Header("UI References - Pause Menu")]
     public GameObject pauseMenu;
     public Button resumeButton;
-    public TextMeshProUGUI tutorialText;
+    public GameObject tutorialText;
     
     [Header("UI References - Game Over")]
     public TextMeshProUGUI gameOverText;

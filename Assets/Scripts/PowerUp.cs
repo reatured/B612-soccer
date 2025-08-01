@@ -87,6 +87,17 @@ public class PowerUp : MonoBehaviour
         
         player.ApplyPowerUp(powerUpType);
         
+        // Play power-up visual and audio effects
+        if (VisualEffectsManager.Instance != null)
+        {
+            VisualEffectsManager.Instance.PlayPowerUpCollectEffect(transform.position);
+            VisualEffectsManager.Instance.PlayPowerUpActivateEffect(player.transform);
+        }
+        
+        if (AudioManager.Instance != null)
+        {
+            AudioManager.Instance.PlayPowerUpSound();
+        }        
         if (collectEffect != null)
         {
             collectEffect.Play();

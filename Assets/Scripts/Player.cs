@@ -8,6 +8,7 @@ public class Player : MonoBehaviour
     public float collisionKickForce = 15f;
     public float jumpForce = 8f;
     public float gravityStrength = 50f;
+    public float gravityFadeDistance = 10f;
     
     [Header("Ground Check")]
     public LayerMask groundLayerMask = 1;
@@ -35,13 +36,16 @@ public class Player : MonoBehaviour
     private Planet planet;
     private Rigidbody2D rb;
     private bool isGrounded;
-    private Vector2 lastGroundNormal;
-    private SpriteRenderer spriteRenderer;
     private bool facingRight = true;
+    
+    [Header("Footstep Audio")]
+    private bool isMoving = false;
+    private bool isPlayingFootsteps = false;
+    private Coroutine footstepCoroutine;
     
     void Start()
     {
-        planet = FindObjectOfType<Planet>();
+        planet = FindFirstObjectByType<Planet>();
         rb = GetComponent<Rigidbody2D>();
         
         if (rb == null)
@@ -51,8 +55,6 @@ public class Player : MonoBehaviour
         
         rb.gravityScale = 0f;
         rb.freezeRotation = true;
-        
-        spriteRenderer = GetComponent<SpriteRenderer>();
         
         if (audioSource == null)
             audioSource = GetComponent<AudioSource>();
@@ -98,8 +100,6 @@ public class Player : MonoBehaviour
     {
         if (planet == null) return;
         
-        Vector2 directionToPlanet = ((Vector2)planet.center.position - (Vector2)transform.position).normalized;
-        
         float distanceToCenter = Vector2.Distance(transform.position, planet.center.position);
         float surfaceDistance = distanceToCenter - planet.radius;
         
@@ -107,10 +107,6 @@ public class Player : MonoBehaviour
         
         isGrounded = surfaceDistance <= groundCheckDistance;
         
-        if (isGrounded)
-        {
-            lastGroundNormal = -directionToPlanet;
-        }
         
         if (!wasGrounded && isGrounded)
         {
@@ -136,10 +132,28 @@ public class Player : MonoBehaviour
         if (playerNumber == 2)
             moveInput = -moveInput;
         
-        if (Mathf.Abs(moveInput) > 0.1f && isGrounded)
+        bool wasMoving = isMoving;
+        isMoving = Mathf.Abs(moveInput) > 0.1f && isGrounded;
+        
+        if (isMoving)
         {
             MoveAroundPlanet(moveInput);
             FlipSprite(moveInput);
+            
+            // Start footstep sounds if not already playing
+            if (!isPlayingFootsteps)
+            {
+                StartFootstepSounds();
+            }
+        }
+        else if (wasMoving && !isMoving)
+        {
+            // Player stopped moving, schedule footstep stop after 0.3 seconds
+            if (footstepCoroutine != null)
+            {
+                StopCoroutine(footstepCoroutine);
+            }
+            footstepCoroutine = StartCoroutine(StopFootstepsAfterDelay());
         }
         
         if (Input.GetKeyDown(jumpKey))
@@ -230,13 +244,23 @@ public class Player : MonoBehaviour
     {
         Vector2 directionToPlanet = (Vector2)planet.center.position - (Vector2)transform.position;
         float distanceToCenter = directionToPlanet.magnitude;
+        float surfaceDistance = distanceToCenter - planet.radius;
+        
+        if (surfaceDistance > gravityFadeDistance)
+        {
+            return;
+        }
         
         Vector2 gravityForce = directionToPlanet.normalized * gravityStrength;
+        
+        float distanceFactor = 1f - Mathf.Clamp01(surfaceDistance / gravityFadeDistance);
+        gravityForce *= distanceFactor;
+        
         rb.AddForce(gravityForce);
         
         if (Time.fixedTime % 1f < Time.fixedDeltaTime)
         {
-            // Debug.Log($"Player {playerNumber} gravity: {gravityForce}, distance: {distanceToCenter}");
+            // Debug.Log($"Player {playerNumber} gravity: {gravityForce}, distance: {distanceToCenter}, factor: {distanceFactor}");
         }
     }
     
@@ -248,7 +272,7 @@ public class Player : MonoBehaviour
         Vector2 jumpDirection = -directionToPlanet;
         
         //Debug.Log($"Player {playerNumber} jumping. Direction: {jumpDirection}, Force: {jumpForce}");
-        rb.AddForce(jumpDirection * jumpForce * jumpMultiplier, ForceMode2D.Impulse);
+        rb.AddForce(jumpDirection * (jumpForce * jumpMultiplier), ForceMode2D.Impulse);
         PlaySound(jumpSound);
     }
     
@@ -275,7 +299,7 @@ public class Player : MonoBehaviour
     void OnCollisionEnter2D(Collision2D collision)
     {
         Ball ball = collision.gameObject.GetComponent<Ball>();
-        if (ball != null && collision.contacts.Length > 0)
+        if (collision.contacts.Length > 0 && ball != null)
         {
             KickBallOnCollision(collision, ball);
         }
@@ -304,25 +328,22 @@ public class Player : MonoBehaviour
         ball.ActivateTrail();
         PlaySound(kickBallSound);
         
+        // Play kick visual effects
+        if (VisualEffectsManager.Instance != null)
+        {
+            VisualEffectsManager.Instance.PlayKickEffect(contact.point, finalKickDirection);
+        }
+        
+        // Use AudioManager for kick sound
+        if (AudioManager.Instance != null)
+        {
+            AudioManager.Instance.PlayKickSound();
+        }        
         // Debug.Log($"Player {playerNumber} collided with ball! Normal: {collisionNormal}, Kick Direction: {finalKickDirection}, Force: {kickStrength}");
     }
     
     
     
-    void DrawWireCircle(Vector3 center, float radius)
-    {
-        int segments = 32;
-        float angleStep = 2f * Mathf.PI / segments;
-        Vector3 prevPoint = center + new Vector3(Mathf.Cos(0) * radius, Mathf.Sin(0) * radius, 0);
-        
-        for (int i = 1; i <= segments; i++)
-        {
-            float angle = i * angleStep;
-            Vector3 newPoint = center + new Vector3(Mathf.Cos(angle) * radius, Mathf.Sin(angle) * radius, 0);
-            Gizmos.DrawLine(prevPoint, newPoint);
-            prevPoint = newPoint;
-        }
-    }
     
     void FlipSprite(float moveDirection)
     {
@@ -410,9 +431,42 @@ public class Player : MonoBehaviour
         }
     }
     
+    void StartFootstepSounds()
+    {
+        // Only start footsteps if not already playing
+        if (isPlayingFootsteps) return;
+        
+        isPlayingFootsteps = true;
+        
+        // Stop any existing footstep coroutine
+        if (footstepCoroutine != null)
+        {
+            StopCoroutine(footstepCoroutine);
+            footstepCoroutine = null;
+        }
+        
+        // Play one footstep sound immediately - only one per movement session
+        if (AudioManager.Instance != null)
+        {
+            AudioManager.Instance.PlayFootstepSound();
+        }
+    }
+    
+    System.Collections.IEnumerator StopFootstepsAfterDelay()
+    {
+        yield return new WaitForSeconds(0.3f);
+        isPlayingFootsteps = false;
+        footstepCoroutine = null;
+    }
+    
     void PlaySound(AudioClip clip)
     {
-        if (audioSource != null && clip != null)
+        // Use AudioManager if available, otherwise use local audio source
+        if (AudioManager.Instance != null)
+        {
+            AudioManager.Instance.PlaySFX(clip);
+        }
+        else if (audioSource != null && clip != null)
         {
             audioSource.PlayOneShot(clip);
         }

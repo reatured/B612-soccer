@@ -54,9 +54,21 @@ public class Goal : MonoBehaviour
             goalEffect.Play();
         }
         
-        if (goalSound != null)
+        // Use AudioManager for goal sound
+        if (AudioManager.Instance != null)
+        {
+            AudioManager.Instance.PlayGoalSound();
+        }
+        else if (goalSound != null)
         {
             goalSound.Play();
+        }
+        
+        // Play visual effects
+        if (VisualEffectsManager.Instance != null)
+        {
+            int scoringPlayer = (goalOwner == 1) ? 2 : 1;
+            VisualEffectsManager.Instance.PlayGoalEffect(transform.position, scoringPlayer);
         }
     }
     
