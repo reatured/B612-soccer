@@ -226,10 +226,16 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   bounciness: 0.8
-  drag: 0.2
+  drag: 0
   angularDrag: 0.3
   maxSpeed: 15
   gravityStrength: 50
   useOrbitPhysics: 1
   trail: {fileID: 0}
   trailTime: 0.5
+  baseKickForce: 8
+  momentumTransferEfficiency: 0.7
+  ballResistanceFactor: 0.3
+  minKickForce: 3
+  maxKickForce: 25
+  directionInfluence: 0.3
