@@ -16,6 +16,17 @@ public class Ball : MonoBehaviour
     public TrailRenderer trail;
     public float trailTime = 0.5f;
     
+    [Header("Kicking Physics")]
+    public float baseKickForce = 8f;
+    [Range(0f, 1f)]
+    public float momentumTransferEfficiency = 0.7f;
+    [Range(0f, 2f)]
+    public float ballResistanceFactor = 0.3f;
+    public float minKickForce = 3f;
+    public float maxKickForce = 25f;
+    [Range(0f, 1f)]
+    public float directionInfluence = 0.3f;
+    
     private Planet planet;
     private Rigidbody2D rb;
     private Vector2 lastVelocity;
@@ -125,23 +136,57 @@ public class Ball : MonoBehaviour
             ContactPoint2D contact = collision.contacts[0];
             Vector2 surfaceNormal = contact.normal;
             
-            Vector2 kickDirection = -surfaceNormal;
-            
             Vector2 playerVelocity = collision.rigidbody.linearVelocity;
-            Vector2 tangentDirection = Vector2.Perpendicular(surfaceNormal);
+            Vector2 ballVelocity = rb.linearVelocity;
             
-            if (Vector2.Dot(playerVelocity, tangentDirection) < 0)
-                tangentDirection = -tangentDirection;
+            Vector2 relativeVelocity = playerVelocity - ballVelocity;
             
-            Vector2 finalKickDirection = (kickDirection + tangentDirection * 0.5f).normalized;
-            
-            float kickStrength = 8f + playerVelocity.magnitude * 0.5f;
+            float kickStrength = CalculateRealisticKickForce(playerVelocity, ballVelocity, relativeVelocity);
+            Vector2 finalKickDirection = CalculateRealisticKickDirection(surfaceNormal, playerVelocity, ballVelocity, relativeVelocity);
             
             rb.AddForce(finalKickDirection * kickStrength, ForceMode2D.Impulse);
             ActivateTrail();
             
-            Debug.Log($"Ball kicked by Player {player.playerNumber}. Direction: {finalKickDirection}, Strength: {kickStrength}");
+            Debug.Log($"Ball kicked by Player {player.playerNumber}. Player Speed: {playerVelocity.magnitude:F1}, Ball Speed: {ballVelocity.magnitude:F1}, Kick Force: {kickStrength:F1}");
         }
+    }
+    
+    float CalculateRealisticKickForce(Vector2 playerVelocity, Vector2 ballVelocity, Vector2 relativeVelocity)
+    {
+        float playerSpeed = playerVelocity.magnitude;
+        float ballSpeed = ballVelocity.magnitude;
+        float relativeSpeed = relativeVelocity.magnitude;
+        
+        float playerMomentumBonus = playerSpeed * momentumTransferEfficiency;
+        
+        float ballResistance = ballSpeed * ballResistanceFactor;
+        
+        float relativeSpeedBonus = relativeSpeed * 0.4f;
+        
+        float totalForce = baseKickForce + playerMomentumBonus + relativeSpeedBonus - ballResistance;
+        
+        return Mathf.Clamp(totalForce, minKickForce, maxKickForce);
+    }
+    
+    Vector2 CalculateRealisticKickDirection(Vector2 surfaceNormal, Vector2 playerVelocity, Vector2 ballVelocity, Vector2 relativeVelocity)
+    {
+        Vector2 reflectionDirection = -surfaceNormal;
+        
+        Vector2 momentumDirection = relativeVelocity.normalized;
+        if (relativeVelocity.magnitude < 0.1f)
+        {
+            momentumDirection = playerVelocity.normalized;
+        }
+        
+        Vector2 tangentDirection = Vector2.Perpendicular(surfaceNormal);
+        if (Vector2.Dot(playerVelocity, tangentDirection) < 0)
+            tangentDirection = -tangentDirection;
+        
+        Vector2 enhancedReflection = (reflectionDirection + tangentDirection * 0.3f).normalized;
+        
+        Vector2 finalDirection = Vector2.Lerp(enhancedReflection, momentumDirection, directionInfluence);
+        
+        return finalDirection.normalized;
     }
     
     void OnPlanetBounce(Collision2D collision)

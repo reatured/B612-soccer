@@ -88,8 +88,9 @@ public class Goal : MonoBehaviour
         
         PlayGoalEffects();
         
-        // Make ball disappear immediately
-        Destroy(ball.gameObject);        
+        // Stop ball physics and destroy after delay
+        StopBallPhysics(ball);
+        Destroy(ball.gameObject, 0.5f);        
         Invoke(nameof(ResetGoal), resetDelay);
     }
     
@@ -110,6 +111,39 @@ public class Goal : MonoBehaviour
             // Add a slight downward force to simulate hitting the crossbar
             Vector2 bounceForce = new(ballRb.linearVelocity.x * 0.5f, -Mathf.Abs(ballRb.linearVelocity.y) * 0.8f);
             ballRb.linearVelocity = bounceForce;
+        }
+    }
+    
+    void StopBallPhysics(Ball ball)
+    {
+        if (ball == null) return;
+        
+        // Get the ball's rigidbody and stop all physics
+        Rigidbody2D ballRb = ball.GetComponent<Rigidbody2D>();
+        if (ballRb != null)
+        {
+            // Stop all movement and rotation
+            ballRb.linearVelocity = Vector2.zero;
+            ballRb.angularVelocity = 0f;
+            
+            // Optionally freeze the rigidbody to prevent any further physics interactions
+            ballRb.constraints = RigidbodyConstraints2D.FreezeAll;
+            
+            Debug.Log($"Ball physics stopped for goal scoring ball");
+        }
+        
+        // Disable the ball's collider to prevent further interactions
+        Collider2D ballCollider = ball.GetComponent<Collider2D>();
+        if (ballCollider != null)
+        {
+            ballCollider.enabled = false;
+        }
+        
+        // Disable any trail effects on the ball
+        TrailRenderer ballTrail = ball.GetComponent<TrailRenderer>();
+        if (ballTrail != null)
+        {
+            ballTrail.enabled = false;
         }
     }
     
