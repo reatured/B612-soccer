@@ -37,8 +37,8 @@ public class GameManager : MonoBehaviour
     public Button backButton;
     
     [Header("UI References - Gameplay")]
-    public TextMeshProUGUI combinedScoreText; // Format: "0 : 0"
-    public TextMeshProUGUI timerText;
+    public CustomSpriteFontRenderer combinedScoreText; // Format: "0 : 0"
+    public CustomSpriteFontRenderer timerText;
     
     [Header("UI References - Pause Menu")]
     public GameObject pauseMenu;
@@ -293,19 +293,19 @@ public class GameManager : MonoBehaviour
         int minutes = Mathf.FloorToInt(currentTime / 60);
         int seconds = Mathf.FloorToInt(currentTime % 60);
         
-        timerText.text = string.Format("{0:00}:{1:00}", minutes, seconds);
+        timerText.SetText(string.Format("{0:00}:{1:00}", minutes, seconds));
         
         if (currentTime <= 10f)
         {
-            timerText.color = Color.red;
+            timerText.SetColor(Color.red);
         }
         else if (currentTime <= 30f)
         {
-            timerText.color = Color.yellow;
+            timerText.SetColor(Color.yellow);
         }
         else
         {
-            timerText.color = Color.white;
+            timerText.SetColor(Color.white);
         }
     }
     
@@ -335,7 +335,7 @@ public class GameManager : MonoBehaviour
     void UpdateUI()
     {
         if (combinedScoreText != null)
-            combinedScoreText.text = $"{player1Score} : {player2Score}";
+            combinedScoreText.SetText($"{player1Score} : {player2Score}");
     }
     
     void EndGameByScore()

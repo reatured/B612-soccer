@@ -226,7 +226,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   bounciness: 0.8
-  drag: 0
+  drag: 0.3
   angularDrag: 0.3
   maxSpeed: 15
   gravityStrength: 50

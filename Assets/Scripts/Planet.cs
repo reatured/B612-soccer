@@ -6,6 +6,9 @@ public class Planet : MonoBehaviour
     public float radius = 5f;
     public Transform center;
     
+    [Header("Rotation")]
+    public float rotationSpeed = 30f;
+    
     [Header("Player Setup")]
     public Transform player1;
     public Transform player2;
@@ -17,6 +20,11 @@ public class Planet : MonoBehaviour
             center = transform;
             
         SetupPlayers();
+    }
+    
+    void Update()
+    {
+        transform.Rotate(0, 0, rotationSpeed * Time.deltaTime);
     }
     
     void SetupPlayers()

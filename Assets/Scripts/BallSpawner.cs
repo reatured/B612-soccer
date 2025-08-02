@@ -110,17 +110,27 @@ public class BallSpawner : MonoBehaviour
             Planet planet = FindFirstObjectByType<Planet>();
             if (planet != null)
             {
-                // Spawn at a safe distance from planet surface
-                Vector3 directionFromPlanet = (basePosition - planet.center.position).normalized;
-                basePosition = planet.center.position + directionFromPlanet * (planet.radius + spawnRadius);
+                // Generate random angle around the planet
+                float randomAngle = Random.Range(0f, 2f * Mathf.PI);
+                
+                // Calculate spawn distance (planet radius + spawn radius for safety)
+                float spawnDistance = planet.radius + spawnRadius;
+                
+                // Calculate position around the planet
+                Vector3 planetCenter = planet.center.position;
+                basePosition = new Vector3(
+                    planetCenter.x + Mathf.Cos(randomAngle) * spawnDistance,
+                    planetCenter.y + Mathf.Sin(randomAngle) * spawnDistance,
+                    planetCenter.z
+                );
             }
         }
         
         Vector3 finalPosition = basePosition + spawnOffset;
         
-        if (useRandomPosition)
+        if (useRandomPosition && !spawnRelativeToPlanet)
         {
-            // Add random offset within spawn radius
+            // Add random offset within spawn radius (only if not already randomized by planet spawning)
             Vector2 randomCircle = Random.insideUnitCircle * spawnRadius;
             finalPosition += new Vector3(randomCircle.x, randomCircle.y, 0);
         }
