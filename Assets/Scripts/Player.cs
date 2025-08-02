@@ -92,7 +92,6 @@ public class Player : MonoBehaviour
         {
             ApplyPlanetGravity();
             OrientToPlanet();
-            EnforcePlayerBoundaries();
         }
     }
     
@@ -174,11 +173,6 @@ public class Player : MonoBehaviour
     {
         if (planet == null) return;
         
-        if (!CanMoveInDirection(direction))
-        {
-            return;
-        }
-        
         Vector2 directionToPlanet = ((Vector2)planet.center.position - (Vector2)transform.position).normalized;
         Vector2 tangentDirection;
         
@@ -213,32 +207,6 @@ public class Player : MonoBehaviour
         }
     }
     
-    bool CanMoveInDirection(float direction)
-    {
-        if (planet == null) return true;
-        
-        Vector2 playerPosition = transform.position;
-        Vector2 planetCenter = planet.center.position;
-        
-        float currentAngle = Mathf.Atan2(playerPosition.y - planetCenter.y, playerPosition.x - planetCenter.x);
-        
-        if (playerNumber == 1)
-        {
-            if (direction > 0 && currentAngle < 0.5f && currentAngle > -0.5f)
-            {
-                return false;
-            }
-        }
-        else if (playerNumber == 2)
-        {
-            if (direction < 0 && (currentAngle > 2.64f || currentAngle < -2.64f))
-            {
-                return false;
-            }
-        }
-        
-        return true;
-    }
     
     void ApplyPlanetGravity()
     {
@@ -359,42 +327,6 @@ public class Player : MonoBehaviour
         }
     }
     
-    void EnforcePlayerBoundaries()
-    {
-        if (planet == null) return;
-        
-        Vector2 playerPosition = transform.position;
-        Vector2 planetCenter = planet.center.position;
-        
-        float currentAngle = Mathf.Atan2(playerPosition.y - planetCenter.y, playerPosition.x - planetCenter.x);
-        
-        bool needsCorrection = false;
-        float targetAngle = currentAngle;
-        
-        if (playerNumber == 1)
-        {
-            if (currentAngle < 0.5f && currentAngle > -0.5f)
-            {
-                targetAngle = currentAngle > 0 ? 0.5f : -0.5f;
-                needsCorrection = true;
-            }
-        }
-        else if (playerNumber == 2)
-        {
-            if (currentAngle > 2.64f || currentAngle < -2.64f)
-            {
-                targetAngle = currentAngle > 0 ? 2.64f : -2.64f;
-                needsCorrection = true;
-            }
-        }
-        
-        if (needsCorrection)
-        {
-            float distanceFromCenter = Vector2.Distance(playerPosition, planetCenter);
-            Vector2 correctedPosition = planetCenter + new Vector2(Mathf.Cos(targetAngle), Mathf.Sin(targetAngle)) * distanceFromCenter;
-            transform.position = correctedPosition;
-        }
-    }
     
     void OnDrawGizmos()
     {
@@ -402,32 +334,39 @@ public class Player : MonoBehaviour
         
         Vector2 directionToPlanet = ((Vector2)planet.center.position - (Vector2)transform.position).normalized;
         
+        // Ground check visualization
         Gizmos.color = isGrounded ? Color.green : Color.red;
         Gizmos.DrawRay(transform.position, directionToPlanet * groundCheckDistance);
         
         Gizmos.color = Color.yellow;
         Gizmos.DrawWireSphere(transform.position, groundCheckRadius);
         
+        // Show full circular movement range (no restrictions)
         if (planet.center != null)
         {
             Gizmos.color = playerNumber == 1 ? Color.blue : Color.red;
             Vector2 center = planet.center.position;
             float radius = planet.radius + planet.playerOffset;
             
-            if (playerNumber == 1)
-            {
-                Vector3 start1 = center + new Vector2(Mathf.Cos(-0.5f), Mathf.Sin(-0.5f)) * radius;
-                Vector3 start2 = center + new Vector2(Mathf.Cos(0.5f), Mathf.Sin(0.5f)) * radius;
-                Gizmos.DrawLine(center, start1);
-                Gizmos.DrawLine(center, start2);
-            }
-            else
-            {
-                Vector3 start1 = center + new Vector2(Mathf.Cos(-2.64f), Mathf.Sin(-2.64f)) * radius;
-                Vector3 start2 = center + new Vector2(Mathf.Cos(2.64f), Mathf.Sin(2.64f)) * radius;
-                Gizmos.DrawLine(center, start1);
-                Gizmos.DrawLine(center, start2);
-            }
+            // Draw a full circle to show unrestricted movement
+            DrawWireCircle(center, radius);
+        }
+    }
+    
+    void DrawWireCircle(Vector2 center, float radius)
+    {
+        int segments = 32;
+        float angleStep = 2f * Mathf.PI / segments;
+        
+        for (int i = 0; i < segments; i++)
+        {
+            float angle1 = i * angleStep;
+            float angle2 = (i + 1) * angleStep;
+            
+            Vector2 point1 = center + new Vector2(Mathf.Cos(angle1), Mathf.Sin(angle1)) * radius;
+            Vector2 point2 = center + new Vector2(Mathf.Cos(angle2), Mathf.Sin(angle2)) * radius;
+            
+            Gizmos.DrawLine(point1, point2);
         }
     }
     

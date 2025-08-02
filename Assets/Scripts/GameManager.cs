@@ -25,6 +25,7 @@ public class GameManager : MonoBehaviour
     [Header("UI References - Background")]
     public Image backgroundTint;
     public bool autoFindBackgroundTint = true;
+    private UIFadeController backgroundFadeController;
     
     [Header("UI References - Main Menu")]
     public Button startButton;
@@ -90,6 +91,20 @@ public class GameManager : MonoBehaviour
                     Debug.Log($"Auto-found background tint: {img.name}");
                     break;
                 }
+            }
+        }
+        
+        // Setup fade controller for background
+        if (backgroundTint != null)
+        {
+            backgroundFadeController = backgroundTint.GetComponent<UIFadeController>();
+            if (backgroundFadeController == null)
+            {
+                backgroundFadeController = backgroundTint.gameObject.AddComponent<UIFadeController>();
+                backgroundFadeController.startVisible = true;
+                backgroundFadeController.fadeInDuration = 0.3f;
+                backgroundFadeController.fadeOutDuration = 0.5f;
+                Debug.Log($"Added UIFadeController to background tint: {backgroundTint.name}");
             }
         }
     }
@@ -169,8 +184,11 @@ public class GameManager : MonoBehaviour
         Debug.Log($"UpdateUIVisibility - Current Stage: {currentStage}");
         
         // Background Tint - visible during all UI states, invisible during gameplay
-        if (backgroundTint != null)
-            backgroundTint.gameObject.SetActive(currentStage != GameStage.Playing);
+        if (backgroundFadeController != null)
+        {
+            bool shouldBeVisible = currentStage != GameStage.Playing;
+            backgroundFadeController.SetVisible(shouldBeVisible);
+        }
         
         // Main Menu UI
         if (startButton != null)
