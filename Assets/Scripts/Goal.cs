@@ -11,6 +11,11 @@ public class Goal : MonoBehaviour
     public ParticleSystem goalEffect;
     public AudioSource goalSound;
     
+    [Header("Goal Validation")]
+    public string validGoalColliderTag = "GoalArea";
+    public string preventionColliderTag = "TopArea";
+    public bool showBlockedGoalFeedback = true;
+    
     private bool goalScored = false;
     
     void OnTriggerEnter2D(Collider2D other)
@@ -20,7 +25,48 @@ public class Goal : MonoBehaviour
         Ball ball = other.GetComponent<Ball>();
         if (ball != null)
         {
+            HandleBallCollision(ball, other);
+        }
+    }
+    
+    void HandleBallCollision(Ball ball, Collider2D hitCollider)
+    {
+        if (goalScored) return;
+        
+        // Check which collider was hit using tags
+        if (hitCollider.CompareTag(validGoalColliderTag))
+        {
+            // Valid goal area - allow scoring
+            Debug.Log($"Ball hit valid goal area: {hitCollider.name}");
             ScoreGoal(ball);
+        }
+        else if (hitCollider.CompareTag(preventionColliderTag))
+        {
+            // Prevention area (top/crossbar) - block goal
+            Debug.Log($"Ball hit prevention area: {hitCollider.name} - Goal blocked!");
+            HandleBlockedGoal(ball);
+        }
+        else
+        {
+            // Fallback: if no tags are set, use collider names
+            string colliderName = hitCollider.name.ToLower();
+            
+            if (colliderName.Contains("goal") && !colliderName.Contains("top"))
+            {
+                Debug.Log($"Ball hit goal area by name: {hitCollider.name}");
+                ScoreGoal(ball);
+            }
+            else if (colliderName.Contains("top") || colliderName.Contains("prevent"))
+            {
+                Debug.Log($"Ball hit prevention area by name: {hitCollider.name} - Goal blocked!");
+                HandleBlockedGoal(ball);
+            }
+            else
+            {
+                // Default behavior for backward compatibility
+                Debug.Log($"Ball hit untagged collider: {hitCollider.name} - Allowing goal");
+                ScoreGoal(ball);
+            }
         }
     }
     
@@ -34,7 +80,7 @@ public class Goal : MonoBehaviour
         
         Debug.Log($"GOAL! Player {scoringPlayer} scored against Player {goalOwner}'s goal!");
         
-        GameManager gameManager = FindObjectOfType<GameManager>();
+        GameManager gameManager = FindFirstObjectByType<GameManager>();
         if (gameManager != null)
         {
             gameManager.PlayerScored(scoringPlayer);
@@ -44,7 +90,46 @@ public class Goal : MonoBehaviour
         
         // Make ball disappear immediately
         Destroy(ball.gameObject);        
-        Invoke("ResetGoal", resetDelay);
+        Invoke(nameof(ResetGoal), resetDelay);
+    }
+    
+    void HandleBlockedGoal(Ball ball)
+    {
+        Debug.Log($"Goal attempt blocked! Ball hit the prevention area.");
+        
+        if (showBlockedGoalFeedback)
+        {
+            PlayBlockedGoalEffects();
+        }
+        
+        // Ball continues in play - no destruction or goal scoring
+        // Optionally modify ball physics (bounce back, etc.)
+        Rigidbody2D ballRb = ball.GetComponent<Rigidbody2D>();
+        if (ballRb != null)
+        {
+            // Add a slight downward force to simulate hitting the crossbar
+            Vector2 bounceForce = new(ballRb.linearVelocity.x * 0.5f, -Mathf.Abs(ballRb.linearVelocity.y) * 0.8f);
+            ballRb.linearVelocity = bounceForce;
+        }
+    }
+    
+    void PlayBlockedGoalEffects()
+    {
+        // Visual feedback for blocked goal
+        if (VisualEffectsManager.Instance != null)
+        {
+            // Play a different effect for blocked goals
+            VisualEffectsManager.Instance.PlayGoalEffect(transform.position, 0); // 0 for blocked
+        }
+        
+        // Audio feedback for blocked goal
+        if (AudioManager.Instance != null)
+        {
+            // Play blocked goal sound (you'll need to add this to AudioManager)
+            // AudioManager.Instance.PlayBlockedGoalSound();
+        }
+        
+        Debug.Log("Played blocked goal effects");
     }
     
     void PlayGoalEffects()
@@ -89,15 +174,39 @@ public class Goal : MonoBehaviour
     
     void OnDrawGizmos()
     {
-        Gizmos.color = goalOwner == 1 ? Color.blue : Color.red;
+        // Draw all colliders in this goal
+        Collider2D[] colliders = GetComponentsInChildren<Collider2D>();
         
-        Collider2D col = GetComponent<Collider2D>();
-        if (col != null)
+        foreach (Collider2D col in colliders)
         {
-            Gizmos.DrawWireCube(transform.position, col.bounds.size);
+            if (col.CompareTag(validGoalColliderTag))
+            {
+                // Valid goal area - green
+                Gizmos.color = Color.green;
+                Gizmos.DrawWireCube(col.bounds.center, col.bounds.size);
+                Gizmos.color = new Color(0, 1, 0, 0.2f);
+                Gizmos.DrawCube(col.bounds.center, col.bounds.size);
+            }
+            else if (col.CompareTag(preventionColliderTag))
+            {
+                // Prevention area - red
+                Gizmos.color = Color.red;
+                Gizmos.DrawWireCube(col.bounds.center, col.bounds.size);
+                Gizmos.color = new Color(1, 0, 0, 0.2f);
+                Gizmos.DrawCube(col.bounds.center, col.bounds.size);
+            }
+            else
+            {
+                // Default - team color
+                Gizmos.color = goalOwner == 1 ? Color.blue : Color.cyan;
+                Gizmos.DrawWireCube(col.bounds.center, col.bounds.size);
+            }
         }
-        else
+        
+        // Fallback if no child colliders found
+        if (colliders.Length == 0)
         {
+            Gizmos.color = goalOwner == 1 ? Color.blue : Color.red;
             Gizmos.DrawWireCube(transform.position, Vector3.one);
         }
     }

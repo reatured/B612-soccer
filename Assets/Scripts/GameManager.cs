@@ -5,9 +5,10 @@ using TMPro;
 public enum GameStage
 {
     MainMenu,    // Stage 1: Starting menu with start button
-    Playing,     // Stage 2: Actual gameplay
-    Paused,      // Stage 3: Paused state
-    GameOver     // Stage 4: Game over state
+    Credits,     // Stage 2: Credits screen
+    Playing,     // Stage 3: Actual gameplay
+    Paused,      // Stage 4: Paused state
+    GameOver     // Stage 5: Game over state
 }
 
 public class GameManager : MonoBehaviour
@@ -21,9 +22,18 @@ public class GameManager : MonoBehaviour
     public float matchTime = 60f; // 1 minute in seconds
     public bool useTimer = true;
     
+    [Header("UI References - Background")]
+    public Image backgroundTint;
+    public bool autoFindBackgroundTint = true;
+    
     [Header("UI References - Main Menu")]
     public Button startButton;
-    public TextMeshProUGUI titleText;
+    public Button creditButton;
+    public GameObject titleText;
+    
+    [Header("UI References - Credits")]
+    public GameObject creditsPanel;
+    public Button backButton;
     
     [Header("UI References - Gameplay")]
     public TextMeshProUGUI combinedScoreText; // Format: "0 : 0"
@@ -48,15 +58,40 @@ public class GameManager : MonoBehaviour
     void Start()
     {
         currentTime = matchTime;
+        InitializeComponents();
         SetGameStage(GameStage.MainMenu);
         
         // Setup button listeners
         if (startButton != null)
             startButton.onClick.AddListener(StartGame);
+        if (creditButton != null)
+            creditButton.onClick.AddListener(ShowCredits);
+        if (backButton != null)
+            backButton.onClick.AddListener(BackToMainMenu);
         if (resumeButton != null)
             resumeButton.onClick.AddListener(ResumeGame);
         if (restartButton != null)
             restartButton.onClick.AddListener(RestartGame);
+    }
+    
+    void InitializeComponents()
+    {
+        // Auto-find background tint if needed
+        if (autoFindBackgroundTint && backgroundTint == null)
+        {
+            // Look for an Image component with "background", "tint", or "overlay" in the name
+            Image[] allImages = FindObjectsByType<Image>(FindObjectsSortMode.None);
+            foreach (Image img in allImages)
+            {
+                string name = img.name.ToLower();
+                if (name.Contains("background") || name.Contains("tint") || name.Contains("overlay"))
+                {
+                    backgroundTint = img;
+                    Debug.Log($"Auto-found background tint: {img.name}");
+                    break;
+                }
+            }
+        }
     }
     
     void Update()
@@ -107,6 +142,11 @@ public class GameManager : MonoBehaviour
                 Time.timeScale = 1f;
                 break;
                 
+            case GameStage.Credits:
+                gameActive = false;
+                Time.timeScale = 1f;
+                break;
+                
             case GameStage.Playing:
                 gameActive = true;
                 Time.timeScale = 1f;
@@ -126,11 +166,33 @@ public class GameManager : MonoBehaviour
     
     void UpdateUIVisibility()
     {
+        Debug.Log($"UpdateUIVisibility - Current Stage: {currentStage}");
+        
+        // Background Tint - visible during all UI states, invisible during gameplay
+        if (backgroundTint != null)
+            backgroundTint.gameObject.SetActive(currentStage != GameStage.Playing);
+        
         // Main Menu UI
         if (startButton != null)
-            startButton.gameObject.SetActive(currentStage == GameStage.MainMenu);
+        {
+            bool shouldShow = currentStage == GameStage.MainMenu;
+            startButton.gameObject.SetActive(shouldShow);
+            Debug.Log($"Start Button: {(shouldShow ? "SHOWN" : "HIDDEN")}");
+        }
+        if (creditButton != null)
+        {
+            bool shouldShow = currentStage == GameStage.MainMenu;
+            creditButton.gameObject.SetActive(shouldShow);
+            Debug.Log($"Credit Button: {(shouldShow ? "SHOWN" : "HIDDEN")}");
+        }
         if (titleText != null)
             titleText.gameObject.SetActive(currentStage == GameStage.MainMenu);
+        
+        // Credits UI
+        if (creditsPanel != null)
+            creditsPanel.SetActive(currentStage == GameStage.Credits);
+        if (backButton != null)
+            backButton.gameObject.SetActive(currentStage == GameStage.Credits);
         
         // Gameplay UI
         if (combinedScoreText != null)
@@ -165,7 +227,7 @@ public class GameManager : MonoBehaviour
         UpdateUI();
         
         // Spawn ball if there's a spawner
-        BallSpawner spawner = FindObjectOfType<BallSpawner>();
+        BallSpawner spawner = FindFirstObjectByType<BallSpawner>();
         if (spawner != null)
         {
             spawner.DestroyAllBalls();
@@ -301,6 +363,18 @@ public class GameManager : MonoBehaviour
         {
             winnerText.text = winnerMessage;
         }
+    }
+    
+    public void ShowCredits()
+    {
+        SetGameStage(GameStage.Credits);
+        Debug.Log("Showing Credits");
+    }
+    
+    public void BackToMainMenu()
+    {
+        SetGameStage(GameStage.MainMenu);
+        Debug.Log("Back to Main Menu");
     }
     
     public void RestartGame()
