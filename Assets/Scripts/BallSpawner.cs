@@ -169,7 +169,7 @@ public class BallSpawner : MonoBehaviour
         // Check if we should only spawn during gameplay
         if (onlySpawnDuringGameplay && gameManager != null)
         {
-            if (gameManager.currentStage != GameStage.Playing)
+            if (gameManager.CurrentStage != GameStage.Playing)
             {
                 return;
             }
@@ -242,7 +242,7 @@ public class BallSpawner : MonoBehaviour
         // Check if we should only spawn during gameplay
         if (onlySpawnDuringGameplay && gameManager != null)
         {
-            if (gameManager.currentStage != GameStage.Playing)
+            if (gameManager.CurrentStage != GameStage.Playing)
             {
                 Debug.Log("Not in gameplay stage, skipping random spawn");
                 return false;

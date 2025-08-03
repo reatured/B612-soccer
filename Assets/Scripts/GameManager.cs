@@ -1,6 +1,8 @@
 using UnityEngine;
 using UnityEngine.UI;
+using UnityEngine.Rendering.Universal;
 using TMPro;
+using System.Collections;
 
 public enum GameStage
 {
@@ -22,10 +24,16 @@ public class GameManager : MonoBehaviour
     public float matchTime = 60f; // 1 minute in seconds
     public bool useTimer = true;
     
-    [Header("UI References - Background")]
-    public Image backgroundTint;
-    public bool autoFindBackgroundTint = true;
-    private UIFadeController backgroundFadeController;
+    [Header("Lighting - Background Fade")]
+    public Light2D backgroundLight;
+    [Range(0.1f, 1.0f)]
+    public float dimIntensity = 0.3f;
+    [Range(0.1f, 1.0f)]
+    public float brightIntensity = 1.0f;
+    [Range(0.1f, 2.0f)]
+    public float lightFadeDuration = 0.5f;
+    private bool autoFindBackgroundLight = true;
+    private Coroutine lightFadeCoroutine;
     
     [Header("UI References - Main Menu")]
     public Button startButton;
@@ -60,10 +68,14 @@ public class GameManager : MonoBehaviour
     public Sprite drawSprite;
     
     [Header("Game State")]
-    public GameStage currentStage = GameStage.MainMenu;
-    public bool gameActive = false;
+    private GameStage currentStage = GameStage.MainMenu;
+    private bool gameActive = false;
     
     private float currentTime;
+    
+    // Public getters for game state
+    public GameStage CurrentStage => currentStage;
+    public bool GameActive => gameActive;
     
     void Start()
     {
@@ -86,35 +98,28 @@ public class GameManager : MonoBehaviour
     
     void InitializeComponents()
     {
-        // Auto-find background tint if needed
-        if (autoFindBackgroundTint && backgroundTint == null)
+        // Auto-find background light if needed
+        if (autoFindBackgroundLight && backgroundLight == null)
         {
-            // Look for an Image component with "background", "tint", or "overlay" in the name
-            Image[] allImages = FindObjectsByType<Image>(FindObjectsSortMode.None);
-            foreach (Image img in allImages)
+            // Look for a Light2D component with "background", "global", or "main" in the name
+            Light2D[] allLights = FindObjectsByType<Light2D>(FindObjectsSortMode.None);
+            foreach (Light2D light in allLights)
             {
-                string name = img.name.ToLower();
-                if (name.Contains("background") || name.Contains("tint") || name.Contains("overlay"))
+                string name = light.name.ToLower();
+                if (name.Contains("background") || name.Contains("global") || name.Contains("main"))
                 {
-                    backgroundTint = img;
-                    Debug.Log($"Auto-found background tint: {img.name}");
+                    backgroundLight = light;
+                    Debug.Log($"Auto-found background light: {light.name}");
                     break;
                 }
             }
         }
         
-        // Setup fade controller for background
-        if (backgroundTint != null)
+        // Set initial light intensity based on starting stage
+        if (backgroundLight != null)
         {
-            backgroundFadeController = backgroundTint.GetComponent<UIFadeController>();
-            if (backgroundFadeController == null)
-            {
-                backgroundFadeController = backgroundTint.gameObject.AddComponent<UIFadeController>();
-                backgroundFadeController.startVisible = true;
-                backgroundFadeController.fadeInDuration = 0.3f;
-                backgroundFadeController.fadeOutDuration = 0.5f;
-                Debug.Log($"Added UIFadeController to background tint: {backgroundTint.name}");
-            }
+            backgroundLight.intensity = brightIntensity; // Start bright for main menu
+            Debug.Log($"Initialized background light intensity to {brightIntensity}");
         }
     }
     
@@ -192,11 +197,11 @@ public class GameManager : MonoBehaviour
     {
         Debug.Log($"UpdateUIVisibility - Current Stage: {currentStage}");
         
-        // Background Tint - visible during all UI states, invisible during gameplay
-        if (backgroundFadeController != null)
+        // Background Light - bright during gameplay, dim during UI states
+        if (backgroundLight != null)
         {
-            bool shouldBeVisible = currentStage != GameStage.Playing;
-            backgroundFadeController.SetVisible(shouldBeVisible);
+            bool shouldBeBright = currentStage == GameStage.Playing;
+            FadeBackgroundLight(shouldBeBright);
         }
         
         // Main Menu UI
@@ -484,6 +489,45 @@ public class GameManager : MonoBehaviour
     {
         SetGameStage(GameStage.MainMenu);
         Debug.Log("Returned to Main Menu");
+    }
+    
+    void FadeBackgroundLight(bool shouldBeBright)
+    {
+        if (backgroundLight == null) return;
+        
+        float targetIntensity = shouldBeBright ? brightIntensity : dimIntensity;
+        
+        if (lightFadeCoroutine != null)
+        {
+            StopCoroutine(lightFadeCoroutine);
+        }
+        
+        lightFadeCoroutine = StartCoroutine(FadeLightIntensity(targetIntensity));
+    }
+    
+    private System.Collections.IEnumerator FadeLightIntensity(float targetIntensity)
+    {
+        if (backgroundLight == null) yield break;
+        
+        float startIntensity = backgroundLight.intensity;
+        float elapsedTime = 0f;
+        
+        while (elapsedTime < lightFadeDuration)
+        {
+            elapsedTime += Time.unscaledDeltaTime;
+            float progress = elapsedTime / lightFadeDuration;
+            
+            // Smooth fade using ease-in-out curve
+            float smoothProgress = progress * progress * (3f - 2f * progress);
+            
+            backgroundLight.intensity = Mathf.Lerp(startIntensity, targetIntensity, smoothProgress);
+            yield return null;
+        }
+        
+        backgroundLight.intensity = targetIntensity;
+        lightFadeCoroutine = null;
+        
+        Debug.Log($"Light fade completed. Intensity: {targetIntensity}");
     }
     
     void OnGUI()
