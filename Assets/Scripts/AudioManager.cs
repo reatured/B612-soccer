@@ -22,6 +22,8 @@ public class AudioManager : MonoBehaviour
     public float powerUpVolume = 1.0f;
     [Range(0f, 1f)]
     public float footstepVolume = 1.0f;
+    [Range(0f, 1f)]
+    public float jumpVolume = 1.0f;
     
     [Header("Audio Clips")]
     public AudioClip backgroundMusic;
@@ -31,6 +33,7 @@ public class AudioManager : MonoBehaviour
     [Header("Audio Arrays")]
     public AudioClip[] kickSounds;
     public AudioClip[] footstepSounds;
+    public AudioClip[] jumpSounds;
     
     [Header("Debug")]
     public string[] currentlyPlayingAudio;
@@ -99,6 +102,16 @@ public class AudioManager : MonoBehaviour
             AudioClip randomFootstep = footstepSounds[Random.Range(0, footstepSounds.Length)];
             sfxSource.PlayOneShot(randomFootstep, footstepVolume);
             AddToDebugList($"Footstep: {randomFootstep.name}");
+        }
+    }
+    
+    public void PlayJumpSound()
+    {
+        if (jumpSounds != null && jumpSounds.Length > 0 && sfxSource != null)
+        {
+            AudioClip randomJump = jumpSounds[Random.Range(0, jumpSounds.Length)];
+            sfxSource.PlayOneShot(randomJump, jumpVolume);
+            AddToDebugList($"Jump: {randomJump.name}");
         }
     }
     

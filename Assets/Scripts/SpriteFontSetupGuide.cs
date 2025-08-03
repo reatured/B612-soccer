@@ -64,6 +64,16 @@ public class SpriteFontSetupGuide : MonoBehaviour
      * - Auto Size: Automatically resize component to fit text
      * - Max Width: Maximum width for auto-sizing
      * 
+     * NEW GRADIENT SETTINGS:
+     * - Use Gradient: Enable red-to-blue gradient for score display
+     * - Left Color: Player 1 color (left of colon, default: red)
+     * - Right Color: Player 2 color (right of colon, default: blue)
+     * 
+     * NEW FLASH ANIMATION:
+     * - Yellow Flash: Enable flash animation when scores update
+     * - Flash Color: Color to flash to (default: yellow)
+     * - Flash Duration: How long the flash lasts (default: 0.5 seconds)
+     * 
      * SpriteFont Properties:
      * - Number Sprites: 512x512 sprites for digits 0-9
      * - Colon Sprite: 512x512 sprite for ":" character
@@ -85,6 +95,18 @@ public class SpriteFontSetupGuide : MonoBehaviour
      * 3. Runtime Text Changes:
      *    - Use SetText("new text") to change displayed text
      *    - Use SetColor(Color.red) to change color
+     * 
+     * 4. NEW: Gradient Effects:
+     *    - Perfect for score displays like "0 : 0"
+     *    - Left side shows Player 1 color (red), right side shows Player 2 color (blue)
+     *    - Colon in middle shows blended color
+     *    - Works with any score format: "1:2", "10 : 15", etc.
+     * 
+     * 5. NEW: Flash Animations:
+     *    - Automatically triggered when GameManager.PlayerScored() is called
+     *    - Only flashes the side that scored (left = Player 1, right = Player 2)
+     *    - Smooth color transition: normal → flash color → normal
+     *    - Customizable flash color and duration
      * 
      * TROUBLESHOOTING
      * ==============

@@ -241,7 +241,17 @@ public class Player : MonoBehaviour
         
         //Debug.Log($"Player {playerNumber} jumping. Direction: {jumpDirection}, Force: {jumpForce}");
         rb.AddForce(jumpDirection * (jumpForce * jumpMultiplier), ForceMode2D.Impulse);
-        PlaySound(jumpSound);
+        
+        // Use AudioManager for jump sound
+        if (AudioManager.Instance != null)
+        {
+            AudioManager.Instance.PlayJumpSound();
+        }
+        else
+        {
+            // Fallback to local audio clip
+            PlaySound(jumpSound);
+        }
     }
     
     void OrientToPlanet()

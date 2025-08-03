@@ -46,9 +46,18 @@ public class GameManager : MonoBehaviour
     public GameObject tutorialText;
     
     [Header("UI References - Game Over")]
-    public TextMeshProUGUI gameOverText;
-    public TextMeshProUGUI winnerText;
+    public Image gameOverImage;
+    public Image winnerImage;
     public Button restartButton;
+    
+    [Header("Game Over Message Assets")]
+    public Sprite gameOverSprite;
+    public Sprite timeUpSprite;
+    
+    [Header("Winner Image Assets")]
+    public Sprite player1WinSprite;
+    public Sprite player2WinSprite;
+    public Sprite drawSprite;
     
     [Header("Game State")]
     public GameStage currentStage = GameStage.MainMenu;
@@ -225,10 +234,10 @@ public class GameManager : MonoBehaviour
             tutorialText.gameObject.SetActive(currentStage == GameStage.Paused);
         
         // Game Over UI
-        if (gameOverText != null)
-            gameOverText.gameObject.SetActive(currentStage == GameStage.GameOver);
-        if (winnerText != null)
-            winnerText.gameObject.SetActive(currentStage == GameStage.GameOver);
+        if (gameOverImage != null)
+            gameOverImage.gameObject.SetActive(currentStage == GameStage.GameOver);
+        if (winnerImage != null)
+            winnerImage.gameObject.SetActive(currentStage == GameStage.GameOver);
         if (restartButton != null)
             restartButton.gameObject.SetActive(currentStage == GameStage.GameOver);
     }
@@ -326,6 +335,12 @@ public class GameManager : MonoBehaviour
         
         UpdateUI();
         
+        // Trigger flash animation for the scoring player
+        if (combinedScoreText != null && combinedScoreText.yellowFlash)
+        {
+            combinedScoreText.TriggerFlash(playerNumber);
+        }
+        
         if (player1Score >= winningScore || player2Score >= winningScore)
         {
             EndGameByScore();
@@ -340,46 +355,116 @@ public class GameManager : MonoBehaviour
     
     void EndGameByScore()
     {
-        string winner = player1Score >= winningScore ? "Player 1" : "Player 2";
+        int winningPlayer = player1Score >= winningScore ? 1 : 2;
+        string winner = winningPlayer == 1 ? "Player 1" : "Player 2";
         
         Debug.Log($"Game Over! {winner} wins with {winningScore} goals!");
         
-        ShowGameOver($"{winner} Wins!", $"Final Score: {player1Score} - {player2Score}");
+        ShowGameOver($"{winner} Wins!", winningPlayer);
     }
     
     void EndGameByTime()
     {
+        int winningPlayer;
         string result;
+        
         if (player1Score > player2Score)
         {
+            winningPlayer = 1;
             result = "Player 1 Wins!";
         }
         else if (player2Score > player1Score)
         {
+            winningPlayer = 2;
             result = "Player 2 Wins!";
         }
         else
         {
+            winningPlayer = 0; // Draw
             result = "It's a Draw!";
         }
         
         Debug.Log($"Time's up! {result} Final Score: {player1Score} - {player2Score}");
         
-        ShowGameOver("Time's Up!", $"{result}\nFinal Score: {player1Score} - {player2Score}");
+        ShowGameOver("Time's Up!", winningPlayer);
     }
     
-    void ShowGameOver(string gameOverMessage, string winnerMessage)
+    void ShowGameOver(string gameOverMessage, int winningPlayer)
     {
         SetGameStage(GameStage.GameOver);
         
-        if (gameOverText != null)
+        if (gameOverImage != null)
         {
-            gameOverText.text = gameOverMessage;
+            SetGameOverImage(gameOverMessage);
         }
         
-        if (winnerText != null)
+        if (winnerImage != null)
         {
-            winnerText.text = winnerMessage;
+            SetWinnerImage(winningPlayer);
+        }
+    }
+    
+    void SetGameOverImage(string gameOverMessage)
+    {
+        if (gameOverImage == null) return;
+        
+        Sprite spriteToShow = null;
+        
+        if (gameOverMessage.Contains("Time's Up"))
+        {
+            spriteToShow = timeUpSprite;
+            Debug.Log("Showing Time's Up message image");
+        }
+        else
+        {
+            spriteToShow = gameOverSprite;
+            Debug.Log("Showing Game Over message image");
+        }
+        
+        if (spriteToShow != null)
+        {
+            gameOverImage.sprite = spriteToShow;
+            gameOverImage.gameObject.SetActive(true);
+        }
+        else
+        {
+            Debug.LogWarning($"No sprite assigned for game over message: {gameOverMessage}");
+            gameOverImage.gameObject.SetActive(false);
+        }
+    }
+    
+    void SetWinnerImage(int winningPlayer)
+    {
+        if (winnerImage == null) return;
+        
+        Sprite spriteToShow = null;
+        
+        switch (winningPlayer)
+        {
+            case 1:
+                spriteToShow = player1WinSprite;
+                Debug.Log("Showing Player 1 win image");
+                break;
+            case 2:
+                spriteToShow = player2WinSprite;
+                Debug.Log("Showing Player 2 win image");
+                break;
+            case 0:
+            default:
+                spriteToShow = drawSprite;
+                Debug.Log("Showing draw image");
+                break;
+        }
+        
+        if (spriteToShow != null)
+        {
+            winnerImage.sprite = spriteToShow;
+            winnerImage.gameObject.SetActive(true);
+        }
+        else
+        {
+            Debug.LogWarning($"No sprite assigned for winning player {winningPlayer}");
+            winnerImage.gameObject.SetActive(false);
         }
     }
     

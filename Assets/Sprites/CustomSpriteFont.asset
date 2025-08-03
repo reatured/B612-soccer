@@ -23,7 +23,7 @@ MonoBehaviour:
   - {fileID: -47192318, guid: d2e6b1280e08e49ae9a442bc0daf52e5, type: 3}
   - {fileID: -447018277, guid: d2e6b1280e08e49ae9a442bc0daf52e5, type: 3}
   - {fileID: -939710885, guid: d2e6b1280e08e49ae9a442bc0daf52e5, type: 3}
-  colonSprite: {fileID: 0}
-  spaceSprite: {fileID: 0}
-  defaultSpacing: 10
+  colonSprite: {fileID: 396777098, guid: d2e6b1280e08e49ae9a442bc0daf52e5, type: 3}
+  spaceSprite: {fileID: 1809446710, guid: d2e6b1280e08e49ae9a442bc0daf52e5, type: 3}
+  defaultSpacing: 0
   additionalMappings: []
