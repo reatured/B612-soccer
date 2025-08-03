@@ -1,4 +1,4 @@
-# LOOP PLANET SOCCER
+# B612 SOCCER
 ## GMTK Game Jam 2025
 
 ---
