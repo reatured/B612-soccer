@@ -385,6 +385,10 @@ PrefabInstance:
       propertyPath: m_Name
       value: Message-Game Over
       objectReference: {fileID: 0}
+    - target: {fileID: 404070285856104772, guid: 96dde2be21e2044e6ab6a621907a25b4, type: 3}
+      propertyPath: m_IsActive
+      value: 0
+      objectReference: {fileID: 0}
     - target: {fileID: 3770578550454567253, guid: 96dde2be21e2044e6ab6a621907a25b4, type: 3}
       propertyPath: m_Sprite
       value: 
@@ -2209,7 +2213,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 5722954772994279717, guid: b66395431171a40dc83fd9eb1e59d255, type: 3}
       propertyPath: m_IsActive
-      value: 1
+      value: 0
       objectReference: {fileID: 0}
     - target: {fileID: 6364586174838375653, guid: b66395431171a40dc83fd9eb1e59d255, type: 3}
       propertyPath: m_Pivot.x
@@ -3573,6 +3577,10 @@ PrefabInstance:
       propertyPath: m_Name
       value: Message-Esc for tutorial
       objectReference: {fileID: 0}
+    - target: {fileID: 404070285856104772, guid: 96dde2be21e2044e6ab6a621907a25b4, type: 3}
+      propertyPath: m_IsActive
+      value: 0
+      objectReference: {fileID: 0}
     - target: {fileID: 3770578550454567253, guid: 96dde2be21e2044e6ab6a621907a25b4, type: 3}
       propertyPath: m_Sprite
       value: 
@@ -4565,7 +4573,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 5722954772994279717, guid: b66395431171a40dc83fd9eb1e59d255, type: 3}
       propertyPath: m_IsActive
-      value: 1
+      value: 0
       objectReference: {fileID: 0}
     - target: {fileID: 6364586174838375653, guid: b66395431171a40dc83fd9eb1e59d255, type: 3}
       propertyPath: m_Pivot.x
