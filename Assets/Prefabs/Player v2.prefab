@@ -96,7 +96,6 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 1262371578612800101}
-  - component: {fileID: 5786575691863421808}
   - component: {fileID: 7956350679990291919}
   - component: {fileID: 5038628857028020126}
   - component: {fileID: 7108833618109825615}
@@ -107,7 +106,7 @@ GameObject:
   - component: {fileID: 8896730578248934554}
   - component: {fileID: 5025797573015963428}
   m_Layer: 0
-  m_Name: Player
+  m_Name: Player v2
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -130,44 +129,6 @@ Transform:
   - {fileID: 6749089399543460777}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!114 &5786575691863421808
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 6475450370934247439}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 223f04b2043024f8e88f18738e7986ea, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  playerNumber: 1
-  useStateMachine: 1
-  useBehaviorTree: 0
-  debugMode: 1
-  moveSpeed: 5
-  collisionKickForce: 25
-  jumpForce: 15
-  gravityStrength: 75
-  gravityFadeDistance: 10
-  groundLayerMask:
-    serializedVersion: 2
-    m_Bits: 1
-  groundCheckDistance: 0.6
-  groundCheckRadius: 0.3
-  audioSource: {fileID: 0}
-  kickBallSound: {fileID: 0}
-  jumpSound: {fileID: 0}
-  landSound: {fileID: 0}
-  moveSound: {fileID: 0}
-  powerKickMultiplier: 1
-  sizeMultiplier: 1
-  jumpMultiplier: 1
-  powerUpDuration: 5
-  leftKey: 97
-  rightKey: 100
-  jumpKey: 119
 --- !u!70 &7956350679990291919
 CapsuleCollider2D:
   m_ObjectHideFlags: 0

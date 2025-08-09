@@ -1,453 +1,540 @@
 using UnityEngine;
+using StateMachine;
 
+public enum PlayerType
+{
+    Human,      // Human-controlled player
+    AI,         // AI-controlled player
+    Hybrid      // Can switch between human and AI
+}
+
+public enum AIDifficulty
+{
+    Beginner,   // Simple, predictable AI
+    Normal,     // Balanced AI behavior
+    Advanced,   // Challenging AI with good tactics
+    Expert      // Near-perfect AI play
+}
+
+public enum AIPersonality
+{
+    Balanced,   // Well-rounded playstyle
+    Aggressive, // Focuses on attacking and ball chasing
+    Defensive,  // Prioritizes goal defense
+    Opportunist // Waits for good chances, counter-attacks
+}
+
+[RequireComponent(typeof(PlayerStateMachine))]
+[RequireComponent(typeof(PlayerMovement))]
+[RequireComponent(typeof(PlayerPhysics))]
+[RequireComponent(typeof(PlayerAudio))]
+[RequireComponent(typeof(PlayerPowerUps))]
+[RequireComponent(typeof(PlayerInput))]
+[RequireComponent(typeof(PlayerAnimator))]
+[RequireComponent(typeof(PlayerBehaviorTreeRunner))]
+[RequireComponent(typeof(SoccerAI))]
 public class Player : MonoBehaviour
 {
-    [Header("Player Settings")]
+    [Header("Player Configuration")]
     public int playerNumber = 1;
+    public PlayerType playerType = PlayerType.Human;
+    
+    [Header("AI Settings")]
+    public AIDifficulty aiDifficulty = AIDifficulty.Normal;
+    public AIPersonality aiPersonality = AIPersonality.Balanced;
+    [Range(0f, 1f)] public float aiReactionTime = 0.2f;
+    [Range(0f, 1f)] public float aiSkillLevel = 0.7f;
+    
+    [Header("Runtime Controls")]
+    public bool allowPlayerTypeSwitch = true;
+    [Space]
+    public KeyCode switchToHumanKey = KeyCode.H;
+    public KeyCode switchToAIKey = KeyCode.B;
+    
+    [Header("Architecture Settings")]
+    public bool useStateMachine = true;
+    public bool useBehaviorTree = false;
+    public bool debugMode = true;
+    
+    [Header("Legacy Compatibility - Will be moved to components")]
     public float moveSpeed = 3f;
     public float collisionKickForce = 15f;
     public float jumpForce = 8f;
     public float gravityStrength = 50f;
     public float gravityFadeDistance = 10f;
-    
-    [Header("Ground Check")]
     public LayerMask groundLayerMask = 1;
     public float groundCheckDistance = 1.0f;
     public float groundCheckRadius = 0.3f;
-    
-    [Header("Audio")]
     public AudioSource audioSource;
     public AudioClip kickBallSound;
     public AudioClip jumpSound;
     public AudioClip landSound;
     public AudioClip moveSound;
-    
-    [Header("Power-ups")]
     public float powerKickMultiplier = 1f;
     public float sizeMultiplier = 1f;
     public float jumpMultiplier = 1f;
     public float powerUpDuration = 5f;
-    
-    [Header("Controls")]
     public KeyCode leftKey = KeyCode.A;
     public KeyCode rightKey = KeyCode.D;
     public KeyCode jumpKey = KeyCode.W;
     
-    private Planet planet;
-    private Rigidbody2D rb;
-    private bool isGrounded;
-    private bool facingRight = true;
+    // Component references (will be auto-assigned by PlayerStateMachine)
+    private PlayerStateMachine stateMachine;
+    private PlayerMovement movement;
+    private PlayerPhysics physics;
+    private PlayerAudio audio;
+    private PlayerPowerUps powerUps;
+    private PlayerInput input;
+    private PlayerAnimator animator;
+    private PlayerBehaviorTreeRunner behaviorTree;
     
-    [Header("Footstep Audio")]
-    private bool isMoving = false;
-    private bool isPlayingFootsteps = false;
-    private Coroutine footstepCoroutine;
+    void Awake()
+    {
+        // Get all components
+        stateMachine = GetComponent<PlayerStateMachine>();
+        movement = GetComponent<PlayerMovement>();
+        physics = GetComponent<PlayerPhysics>();
+        audio = GetComponent<PlayerAudio>();
+        powerUps = GetComponent<PlayerPowerUps>();
+        input = GetComponent<PlayerInput>();
+        animator = GetComponent<PlayerAnimator>();
+        behaviorTree = GetComponent<PlayerBehaviorTreeRunner>();
+        
+        // Copy legacy settings to new components
+        CopyLegacySettings();
+    }
     
     void Start()
     {
-        planet = FindFirstObjectByType<Planet>();
-        rb = GetComponent<Rigidbody2D>();
+        // Configure player type
+        ConfigurePlayerType();
         
-        if (rb == null)
+        // Initialize the state machine with idle state
+        if (useStateMachine)
         {
-            rb = gameObject.AddComponent<Rigidbody2D>();
+            stateMachine.ChangeState(new PlayerIdleState());
         }
         
-        rb.gravityScale = 0f;
-        rb.freezeRotation = true;
-        
-        if (audioSource == null)
-            audioSource = GetComponent<AudioSource>();
-        if (audioSource == null)
-            audioSource = gameObject.AddComponent<AudioSource>();
-            
-        SetupPlayerKeys();
-    }
-    
-    void SetupPlayerKeys()
-    {
-        if (playerNumber == 1)
+        // Configure behavior tree
+        if (behaviorTree != null)
         {
-            leftKey = KeyCode.A;
-            rightKey = KeyCode.D;
-            jumpKey = KeyCode.W;
+            behaviorTree.ToggleBehaviorTree(useBehaviorTree);
         }
-        else if (playerNumber == 2)
+        
+        if (debugMode)
         {
-            leftKey = KeyCode.LeftArrow;
-            rightKey = KeyCode.RightArrow;
-            jumpKey = KeyCode.UpArrow;
+            Debug.Log($"Player {playerNumber} initialized as {playerType} with new architecture. StateMachine: {useStateMachine}, BehaviorTree: {useBehaviorTree}");
         }
     }
     
     void Update()
     {
-        CheckGrounded();
-        HandleInput();
+        // Handle runtime player type switching
+        if (allowPlayerTypeSwitch)
+        {
+            HandlePlayerTypeSwitching();
+        }
+        
+        // The state machine and behavior tree handle their own updates
+        // This Update method is kept minimal to just handle any global player logic
+        
+        if (!useStateMachine)
+        {
+            // Fallback: handle input manually if state machine is disabled
+            HandleManualUpdate();
+        }
+    }
+    
+    void ConfigurePlayerType()
+    {
+        switch (playerType)
+        {
+            case PlayerType.Human:
+                SetupHumanPlayer();
+                break;
+            case PlayerType.AI:
+                SetupAIPlayer();
+                break;
+            case PlayerType.Hybrid:
+                SetupHybridPlayer();
+                break;
+        }
+    }
+    
+    void SetupHumanPlayer()
+    {
+        input.SetInputSource(InputSource.Human);
+        useStateMachine = true;
+        useBehaviorTree = false;
+        
+        if (behaviorTree != null)
+        {
+            behaviorTree.ToggleBehaviorTree(false);
+        }
+        
+        if (debugMode)
+        {
+            Debug.Log($"Player {playerNumber} configured as Human player");
+        }
+    }
+    
+    void SetupAIPlayer()
+    {
+        input.SetInputSource(InputSource.AI);
+        useStateMachine = true;
+        useBehaviorTree = true;
+        
+        if (behaviorTree != null)
+        {
+            behaviorTree.ToggleBehaviorTree(true);
+            behaviorTree.EnableAI(true);
+            ConfigureAIBehavior();
+        }
+        
+        if (debugMode)
+        {
+            Debug.Log($"Player {playerNumber} configured as AI player - Difficulty: {aiDifficulty}, Personality: {aiPersonality}");
+        }
+    }
+    
+    void SetupHybridPlayer()
+    {
+        input.SetInputSource(InputSource.Hybrid);
+        input.allowAIOverride = true;
+        useStateMachine = true;
+        useBehaviorTree = true;
+        
+        if (behaviorTree != null)
+        {
+            behaviorTree.ToggleBehaviorTree(true);
+            behaviorTree.EnableAI(false); // Start with human control
+        }
+        
+        if (debugMode)
+        {
+            Debug.Log($"Player {playerNumber} configured as Hybrid player");
+        }
+    }
+    
+    void ConfigureAIBehavior()
+    {
+        if (behaviorTree == null) return;
+        
+        // Configure AI reaction time based on difficulty
+        switch (aiDifficulty)
+        {
+            case AIDifficulty.Beginner:
+                aiReactionTime = 0.5f;
+                aiSkillLevel = 0.3f;
+                break;
+            case AIDifficulty.Normal:
+                aiReactionTime = 0.3f;
+                aiSkillLevel = 0.6f;
+                break;
+            case AIDifficulty.Advanced:
+                aiReactionTime = 0.15f;
+                aiSkillLevel = 0.8f;
+                break;
+            case AIDifficulty.Expert:
+                aiReactionTime = 0.05f;
+                aiSkillLevel = 0.95f;
+                break;
+        }
+        
+        // Apply AI settings to input component
+        if (input != null)
+        {
+            input.aiInputSmoothTime = aiReactionTime;
+        }
+    }
+    
+    void HandlePlayerTypeSwitching()
+    {
+        // Quick switch keys for testing
+        if (Input.GetKeyDown(switchToHumanKey))
+        {
+            SwitchToHuman();
+        }
+        else if (Input.GetKeyDown(switchToAIKey))
+        {
+            SwitchToAI();
+        }
+    }
+    
+    void CopyLegacySettings()
+    {
+        // Copy settings from legacy fields to new component system
+        if (movement != null)
+        {
+            movement.moveSpeed = moveSpeed;
+            movement.jumpForce = jumpForce;
+            movement.jumpMultiplier = jumpMultiplier;
+            movement.groundCheckDistance = groundCheckDistance;
+            movement.groundCheckRadius = groundCheckRadius;
+            movement.groundLayerMask = groundLayerMask;
+        }
+        
+        if (physics != null)
+        {
+            physics.gravityStrength = gravityStrength;
+            physics.gravityFadeDistance = gravityFadeDistance;
+            physics.collisionKickForce = collisionKickForce;
+        }
+        
+        if (audio != null)
+        {
+            audio.audioSource = audioSource;
+            audio.kickBallSound = kickBallSound;
+            audio.jumpSound = jumpSound;
+            audio.landSound = landSound;
+            audio.moveSound = moveSound;
+        }
+        
+        if (powerUps != null)
+        {
+            powerUps.powerKickMultiplier = powerKickMultiplier;
+            powerUps.sizeMultiplier = sizeMultiplier;
+            powerUps.jumpMultiplier = jumpMultiplier;
+            powerUps.powerUpDuration = powerUpDuration;
+        }
+        
+        if (input != null)
+        {
+            input.leftKey = leftKey;
+            input.rightKey = rightKey;
+            input.jumpKey = jumpKey;
+        }
     }
     
     void FixedUpdate()
     {
-        if (planet != null)
+        // Let state machine handle physics, or do manual handling
+        if (!useStateMachine)
         {
-            ApplyPlanetGravity();
-            OrientToPlanet();
+            HandleManualFixedUpdate();
         }
     }
     
-    void CheckGrounded()
+    private void HandleManualUpdate()
     {
-        if (planet == null) return;
+        // Fallback manual input handling (similar to original Player.cs)
+        movement.CheckGrounded();
         
-        float distanceToCenter = Vector2.Distance(transform.position, planet.center.position);
-        float surfaceDistance = distanceToCenter - planet.radius;
-        
-        bool wasGrounded = isGrounded;
-        
-        isGrounded = surfaceDistance <= groundCheckDistance;
-        
-        
-        if (!wasGrounded && isGrounded)
+        if (input.IsMoving() && movement.isGrounded)
         {
-            rb.linearVelocity *= 0.8f;
-        }
-        
-        // Debug.Log($"Player {playerNumber} - Distance to surface: {surfaceDistance:F2}, Grounded: {isGrounded}");
-    }
-    
-    void HandleInput()
-    {
-        float moveInput = 0f;
-        
-        if (Input.GetKey(leftKey))
-        {
-            moveInput = -1f;
-        }
-        if (Input.GetKey(rightKey))
-        {
-            moveInput = 1f;
-        }
-        
-        if (playerNumber == 2)
-            moveInput = -moveInput;
-        
-        bool wasMoving = isMoving;
-        isMoving = Mathf.Abs(moveInput) > 0.1f && isGrounded;
-        
-        if (isMoving)
-        {
-            MoveAroundPlanet(moveInput);
-            FlipSprite(moveInput);
+            movement.MoveAroundPlanet(input.MoveInput);
+            movement.FlipSprite(input.MoveInput);
             
-            // Start footstep sounds if not already playing
-            if (!isPlayingFootsteps)
+            if (!audio.IsPlayingFootsteps())
             {
-                StartFootstepSounds();
+                audio.StartMovementAudio();
             }
         }
-        else if (wasMoving && !isMoving)
+        else if (!input.IsMoving() && audio.IsPlayingFootsteps())
         {
-            // Player stopped moving, schedule footstep stop after 0.3 seconds
-            if (footstepCoroutine != null)
-            {
-                StopCoroutine(footstepCoroutine);
-            }
-            footstepCoroutine = StartCoroutine(StopFootstepsAfterDelay());
+            audio.StopMovementAudio();
         }
         
-        if (Input.GetKeyDown(jumpKey))
+        if (input.JumpPressed && movement.isGrounded)
         {
-            if (isGrounded)
-            {
-                Jump();
-            }
-            else
-            {
-                // Debug.Log($"Player {playerNumber} tried to jump in air - blocked!");
-            }
+            movement.Jump();
+            audio.PlayJumpSound();
         }
         
+        animator.UpdateAnimationState();
     }
     
-    void MoveAroundPlanet(float direction)
+    private void HandleManualFixedUpdate()
     {
-        if (planet == null) return;
-        
-        Vector2 directionToPlanet = ((Vector2)planet.center.position - (Vector2)transform.position).normalized;
-        Vector2 tangentDirection;
-        
-        if (playerNumber == 1)
-        {
-            tangentDirection = new Vector2(-directionToPlanet.y, directionToPlanet.x) * direction;
-        }
-        else
-        {
-            tangentDirection = new Vector2(directionToPlanet.y, -directionToPlanet.x) * direction;
-        }
-        
-        Vector2 targetVelocity = tangentDirection * moveSpeed;
-        
-        if (isGrounded)
-        {
-            Vector2 currentVelocity = rb.linearVelocity;
-            Vector2 gravityDirection = directionToPlanet;
-            float radialVelocity = Vector2.Dot(currentVelocity, gravityDirection);
-            Vector2 radialComponent = gravityDirection * radialVelocity;
-            
-            rb.linearVelocity = targetVelocity + radialComponent;
-        }
-        else
-        {
-            Vector2 currentVelocity = rb.linearVelocity;
-            Vector2 gravityDirection = directionToPlanet;
-            float radialVelocity = Vector2.Dot(currentVelocity, gravityDirection);
-            Vector2 radialComponent = gravityDirection * radialVelocity;
-            
-            rb.linearVelocity = targetVelocity * 0.3f + radialComponent;
-        }
+        // Fallback manual physics handling
+        physics.ApplyPlanetGravity();
+        physics.OrientToPlanet(movement.isGrounded);
     }
     
-    
-    void ApplyPlanetGravity()
-    {
-        Vector2 directionToPlanet = (Vector2)planet.center.position - (Vector2)transform.position;
-        float distanceToCenter = directionToPlanet.magnitude;
-        float surfaceDistance = distanceToCenter - planet.radius;
-        
-        if (surfaceDistance > gravityFadeDistance)
-        {
-            return;
-        }
-        
-        Vector2 gravityForce = directionToPlanet.normalized * gravityStrength;
-        
-        float distanceFactor = 1f - Mathf.Clamp01(surfaceDistance / gravityFadeDistance);
-        gravityForce *= distanceFactor;
-        
-        rb.AddForce(gravityForce);
-        
-        if (Time.fixedTime % 1f < Time.fixedDeltaTime)
-        {
-            // Debug.Log($"Player {playerNumber} gravity: {gravityForce}, distance: {distanceToCenter}, factor: {distanceFactor}");
-        }
-    }
-    
-    void Jump()
-    {
-        if (planet == null || !isGrounded) return;
-        
-        Vector2 directionToPlanet = ((Vector2)planet.center.position - (Vector2)transform.position).normalized;
-        Vector2 jumpDirection = -directionToPlanet;
-        
-        //Debug.Log($"Player {playerNumber} jumping. Direction: {jumpDirection}, Force: {jumpForce}");
-        rb.AddForce(jumpDirection * (jumpForce * jumpMultiplier), ForceMode2D.Impulse);
-        
-        // Use AudioManager for jump sound
-        if (AudioManager.Instance != null)
-        {
-            AudioManager.Instance.PlayJumpSound();
-        }
-        else
-        {
-            // Fallback to local audio clip
-            PlaySound(jumpSound);
-        }
-    }
-    
-    void OrientToPlanet()
-    {
-        if (planet == null) return;
-        
-        Vector2 directionToPlanet = ((Vector2)planet.center.position - (Vector2)transform.position).normalized;
-        
-        float angle = Mathf.Atan2(directionToPlanet.y, directionToPlanet.x) * Mathf.Rad2Deg - 90f;
-        
-        Quaternion targetRotation = Quaternion.AngleAxis(angle, Vector3.forward);
-        
-        if (isGrounded)
-        {
-            transform.rotation = Quaternion.Slerp(transform.rotation, targetRotation, Time.fixedDeltaTime * 10f);
-        }
-        else
-        {
-            transform.rotation = Quaternion.Slerp(transform.rotation, targetRotation, Time.fixedDeltaTime * 3f);
-        }
-    }
     
     void OnCollisionEnter2D(Collision2D collision)
     {
-        Ball ball = collision.gameObject.GetComponent<Ball>();
-        if (collision.contacts.Length > 0 && ball != null)
+        // Let the state machine handle collisions if enabled
+        if (!useStateMachine)
         {
-            KickBallOnCollision(collision, ball);
+            // Manual collision handling
+            Ball ball = collision.gameObject.GetComponent<Ball>();
+            if (collision.contacts.Length > 0 && ball != null)
+            {
+                physics.HandleBallCollision(collision, ball);
+                audio.PlayKickSound();
+            }
         }
     }
     
-    void KickBallOnCollision(Collision2D collision, Ball ball)
-    {
-        ContactPoint2D contact = collision.contacts[0];
-        Vector2 collisionNormal = contact.normal;
-        
-        Vector2 kickDirection = -collisionNormal;
-        
-        Vector2 playerVelocity = rb.linearVelocity;
-        Vector2 relativeVelocity = playerVelocity - ball.GetComponent<Rigidbody2D>().linearVelocity;
-        
-        float velocityMagnitude = relativeVelocity.magnitude;
-        float kickStrength = (collisionKickForce + velocityMagnitude * 1.5f) * powerKickMultiplier;
-        
-        Vector2 tangentDirection = Vector2.Perpendicular(collisionNormal);
-        if (Vector2.Dot(playerVelocity, tangentDirection) < 0)
-            tangentDirection = -tangentDirection;
-        
-        Vector2 finalKickDirection = (kickDirection + tangentDirection * 0.4f).normalized;
-        
-        ball.GetComponent<Rigidbody2D>().AddForce(finalKickDirection * kickStrength, ForceMode2D.Impulse);
-        ball.ActivateTrail();
-        PlaySound(kickBallSound);
-        
-        // Play kick visual effects
-        if (VisualEffectsManager.Instance != null)
-        {
-            VisualEffectsManager.Instance.PlayKickEffect(contact.point, finalKickDirection);
-        }
-        
-        // Use AudioManager for kick sound
-        if (AudioManager.Instance != null)
-        {
-            AudioManager.Instance.PlayKickSound();
-        }        
-        // Debug.Log($"Player {playerNumber} collided with ball! Normal: {collisionNormal}, Kick Direction: {finalKickDirection}, Force: {kickStrength}");
-    }
-    
-    
-    
-    
-    void FlipSprite(float moveDirection)
-    {
-        bool shouldFaceRight = moveDirection > 0;
-        
-        if (shouldFaceRight != facingRight)
-        {
-            facingRight = shouldFaceRight;
-            
-            Vector3 currentScale = transform.localScale;
-            currentScale.x = facingRight ? Mathf.Abs(currentScale.x) : -Mathf.Abs(currentScale.x);
-            transform.localScale = currentScale;
-        }
-    }
-    
-    
-    void OnDrawGizmos()
-    {
-        if (planet == null) return;
-        
-        Vector2 directionToPlanet = ((Vector2)planet.center.position - (Vector2)transform.position).normalized;
-        
-        // Ground check visualization
-        Gizmos.color = isGrounded ? Color.green : Color.red;
-        Gizmos.DrawRay(transform.position, directionToPlanet * groundCheckDistance);
-        
-        Gizmos.color = Color.yellow;
-        Gizmos.DrawWireSphere(transform.position, groundCheckRadius);
-        
-        // Show full circular movement range (no restrictions)
-        if (planet.center != null)
-        {
-            Gizmos.color = playerNumber == 1 ? Color.blue : Color.red;
-            Vector2 center = planet.center.position;
-            float radius = planet.radius + planet.playerOffset;
-            
-            // Draw a full circle to show unrestricted movement
-            DrawWireCircle(center, radius);
-        }
-    }
-    
-    void DrawWireCircle(Vector2 center, float radius)
-    {
-        int segments = 32;
-        float angleStep = 2f * Mathf.PI / segments;
-        
-        for (int i = 0; i < segments; i++)
-        {
-            float angle1 = i * angleStep;
-            float angle2 = (i + 1) * angleStep;
-            
-            Vector2 point1 = center + new Vector2(Mathf.Cos(angle1), Mathf.Sin(angle1)) * radius;
-            Vector2 point2 = center + new Vector2(Mathf.Cos(angle2), Mathf.Sin(angle2)) * radius;
-            
-            Gizmos.DrawLine(point1, point2);
-        }
-    }
-    
-    void StartFootstepSounds()
-    {
-        // Only start footsteps if not already playing
-        if (isPlayingFootsteps) return;
-        
-        isPlayingFootsteps = true;
-        
-        // Stop any existing footstep coroutine
-        if (footstepCoroutine != null)
-        {
-            StopCoroutine(footstepCoroutine);
-            footstepCoroutine = null;
-        }
-        
-        // Play one footstep sound immediately - only one per movement session
-        if (AudioManager.Instance != null)
-        {
-            AudioManager.Instance.PlayFootstepSound();
-        }
-    }
-    
-    System.Collections.IEnumerator StopFootstepsAfterDelay()
-    {
-        yield return new WaitForSeconds(0.3f);
-        isPlayingFootsteps = false;
-        footstepCoroutine = null;
-    }
-    
-    void PlaySound(AudioClip clip)
-    {
-        // Use AudioManager if available, otherwise use local audio source
-        if (AudioManager.Instance != null)
-        {
-            AudioManager.Instance.PlaySFX(clip);
-        }
-        else if (audioSource != null && clip != null)
-        {
-            audioSource.PlayOneShot(clip);
-        }
-    }
-    
+    // Public methods for power-ups (maintaining compatibility with existing code)
     public void ApplyPowerUp(PowerUpType powerUpType)
     {
-        StopCoroutine(nameof(PowerUpCoroutine));
-        StartCoroutine(PowerUpCoroutine(powerUpType));
+        if (useStateMachine && stateMachine.GetCurrentState() != null)
+        {
+            // Wrap current state in powered-up state
+            var currentState = stateMachine.GetCurrentState();
+            stateMachine.ChangeState(new PlayerPoweredUpState(currentState, powerUpType));
+        }
+        else
+        {
+            // Direct power-up application
+            powerUps.ApplyPowerUp(powerUpType);
+        }
     }
     
-    System.Collections.IEnumerator PowerUpCoroutine(PowerUpType powerUpType)
+    // Utility methods to maintain compatibility
+    public bool IsGrounded() => movement.isGrounded;
+    public bool IsFacingRight() => movement.facingRight;
+    public float GetMoveSpeed() => movement.moveSpeed;
+    
+    // Debug methods
+    public string GetCurrentStateName()
     {
-        switch (powerUpType)
+        return stateMachine != null ? stateMachine.currentStateName : "No State Machine";
+    }
+    
+    public void ToggleStateMachine(bool enable)
+    {
+        useStateMachine = enable;
+        if (debugMode)
         {
-            case PowerUpType.PowerfulKick:
-                powerKickMultiplier = 2f;
-                break;
-            case PowerUpType.BiggerBody:
-                sizeMultiplier = 1.5f;
-                transform.localScale = Vector3.one * sizeMultiplier;
-                break;
-            case PowerUpType.HigherJump:
-                jumpMultiplier = 2f;
-                break;
+            Debug.Log($"Player {playerNumber} state machine toggled: {enable}");
+        }
+    }
+    
+    public void ToggleBehaviorTree(bool enable)
+    {
+        useBehaviorTree = enable;
+        if (behaviorTree != null)
+        {
+            behaviorTree.ToggleBehaviorTree(enable);
         }
         
-        yield return new WaitForSeconds(powerUpDuration);
+        if (debugMode)
+        {
+            Debug.Log($"Player {playerNumber} behavior tree toggled: {enable}");
+        }
+    }
+    
+    public void EnableAI(bool enable)
+    {
+        if (behaviorTree != null)
+        {
+            behaviorTree.EnableAI(enable);
+            useBehaviorTree = enable;
+        }
         
-        powerKickMultiplier = 1f;
-        sizeMultiplier = 1f;
-        jumpMultiplier = 1f;
-        transform.localScale = Vector3.one;
+        if (debugMode)
+        {
+            Debug.Log($"Player {playerNumber} AI mode: {enable}");
+        }
+    }
+    
+    // Player Type Management Methods
+    public void SwitchToHuman()
+    {
+        if (!allowPlayerTypeSwitch) return;
+        
+        playerType = PlayerType.Human;
+        SetupHumanPlayer();
+        
+        if (debugMode)
+        {
+            Debug.Log($"Player {playerNumber} switched to Human control");
+        }
+    }
+    
+    public void SwitchToAI()
+    {
+        if (!allowPlayerTypeSwitch) return;
+        
+        playerType = PlayerType.AI;
+        SetupAIPlayer();
+        
+        if (debugMode)
+        {
+            Debug.Log($"Player {playerNumber} switched to AI control");
+        }
+    }
+    
+    public void SwitchToHybrid()
+    {
+        if (!allowPlayerTypeSwitch) return;
+        
+        playerType = PlayerType.Hybrid;
+        SetupHybridPlayer();
+        
+        if (debugMode)
+        {
+            Debug.Log($"Player {playerNumber} switched to Hybrid control");
+        }
+    }
+    
+    public void SetPlayerType(PlayerType newType)
+    {
+        if (!allowPlayerTypeSwitch && newType != playerType) return;
+        
+        playerType = newType;
+        ConfigurePlayerType();
+    }
+    
+    public void SetAIDifficulty(AIDifficulty difficulty)
+    {
+        aiDifficulty = difficulty;
+        if (playerType == PlayerType.AI || playerType == PlayerType.Hybrid)
+        {
+            ConfigureAIBehavior();
+        }
+        
+        if (debugMode)
+        {
+            Debug.Log($"Player {playerNumber} AI difficulty set to: {difficulty}");
+        }
+    }
+    
+    public void SetAIPersonality(AIPersonality personality)
+    {
+        aiPersonality = personality;
+        if (playerType == PlayerType.AI || playerType == PlayerType.Hybrid)
+        {
+            ConfigureAIBehavior();
+        }
+        
+        if (debugMode)
+        {
+            Debug.Log($"Player {playerNumber} AI personality set to: {personality}");
+        }
+    }
+    
+    // Information methods
+    public bool IsHuman()
+    {
+        return playerType == PlayerType.Human || (playerType == PlayerType.Hybrid && input.IsHumanControlled());
+    }
+    
+    public bool IsAI()
+    {
+        return playerType == PlayerType.AI || (playerType == PlayerType.Hybrid && input.IsAIControlled());
+    }
+    
+    public string GetPlayerTypeDescription()
+    {
+        string description = $"{playerType}";
+        if (playerType == PlayerType.AI || playerType == PlayerType.Hybrid)
+        {
+            description += $" ({aiDifficulty} {aiPersonality})";
+        }
+        return description;
+    }
+    
+    public float GetAISkillLevel()
+    {
+        return aiSkillLevel;
+    }
+    
+    public float GetAIReactionTime()
+    {
+        return aiReactionTime;
     }
 }
