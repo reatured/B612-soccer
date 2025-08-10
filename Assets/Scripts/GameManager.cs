@@ -1,547 +1,280 @@
 using UnityEngine;
 using UnityEngine.UI;
-using UnityEngine.Rendering.Universal;
-using TMPro;
-using System.Collections;
 
-public enum GameStage
+public enum GameState
 {
-    MainMenu,    // Stage 1: Starting menu with start button
-    Credits,     // Stage 2: Credits screen
-    Playing,     // Stage 3: Actual gameplay
-    Paused,      // Stage 4: Paused state
-    GameOver     // Stage 5: Game over state
+    Menu,
+    Game,
+    Pause,
+    GameEnd,
+    Credits
 }
 
 public class GameManager : MonoBehaviour
 {
-    [Header("Score Settings")]
-    public int player1Score = 0;
-    public int player2Score = 0;
-    public int winningScore = 5;
-    
-    [Header("Time Settings")]
-    public float matchTime = 60f; // 1 minute in seconds
-    public bool useTimer = true;
-    
-    [Header("Lighting - Background Fade")]
-    public Light2D backgroundLight;
-    [Range(0.1f, 1.0f)]
-    public float dimIntensity = 0.3f;
-    [Range(0.1f, 1.0f)]
-    public float brightIntensity = 1.0f;
-    [Range(0.1f, 2.0f)]
-    public float lightFadeDuration = 0.5f;
-    private bool autoFindBackgroundLight = true;
-    private Coroutine lightFadeCoroutine;
-    
-    [Header("UI References - Main Menu")]
-    public Button startButton;
-    public Button creditButton;
-    public GameObject titleText;
-    
-    [Header("UI References - Credits")]
-    public GameObject creditsPanel;
-    public Button backButton;
-    
-    [Header("UI References - Gameplay")]
-    public CustomSpriteFontRenderer combinedScoreText; // Format: "0 : 0"
-    public CustomSpriteFontRenderer timerText;
-    
-    [Header("UI References - Pause Menu")]
-    public GameObject pauseMenu;
-    public Button resumeButton;
-    public GameObject tutorialText;
-    
-    [Header("UI References - Game Over")]
-    public Image gameOverImage;
-    public Image winnerImage;
-    public Button restartButton;
-    
-    [Header("Game Over Message Assets")]
-    public Sprite gameOverSprite;
-    public Sprite timeUpSprite;
-    
-    [Header("Winner Image Assets")]
-    public Sprite player1WinSprite;
-    public Sprite player2WinSprite;
-    public Sprite drawSprite;
+    public static GameManager Instance { get; private set; }
     
     [Header("Game State")]
-    private GameStage currentStage = GameStage.MainMenu;
-    private bool gameActive = false;
+    [SerializeField] private GameState currentState = GameState.Menu;
+    private GameState previousState;
     
-    private float currentTime;
+    [Header("UI Panels")]
+    [Tooltip("Order: Menu, Game, Pause, GameEnd, Credits")]
+    public GameObject[] uiPanels = new GameObject[5];
     
-    // Public getters for game state
-    public GameStage CurrentStage => currentStage;
-    public bool GameActive => gameActive;
+    [Header("UI Buttons")]
+    public Button startButton;
+    public Button restartButton;
+    public Button pauseButton;
+    public Button resumeButton;
+    public Button menuButton;
+    public Button creditsButton;
+    
+    [Header("Debug")]
+    [SerializeField] private bool showDebugUI = true;
+    
+    private GUIStyle debugStyle;
+    
+    void Awake()
+    {
+        if (Instance != null && Instance != this)
+        {
+            Destroy(gameObject);
+            return;
+        }
+        
+        Instance = this;
+    }
     
     void Start()
     {
-        currentTime = matchTime;
-        InitializeComponents();
-        SetGameStage(GameStage.MainMenu);
-        
-        // Setup button listeners
-        if (startButton != null)
-            startButton.onClick.AddListener(StartGame);
-        if (creditButton != null)
-            creditButton.onClick.AddListener(ShowCredits);
-        if (backButton != null)
-            backButton.onClick.AddListener(BackToMainMenu);
-        if (resumeButton != null)
-            resumeButton.onClick.AddListener(ResumeGame);
-        if (restartButton != null)
-            restartButton.onClick.AddListener(RestartGame);
+        SetupDebugStyle();
+        SetupButtonListeners();
+        SetState(GameState.Menu);
     }
-    
-    void InitializeComponents()
-    {
-        // Auto-find background light if needed
-        if (autoFindBackgroundLight && backgroundLight == null)
-        {
-            // Look for a Light2D component with "background", "global", or "main" in the name
-            Light2D[] allLights = FindObjectsByType<Light2D>(FindObjectsSortMode.None);
-            foreach (Light2D light in allLights)
-            {
-                string name = light.name.ToLower();
-                if (name.Contains("background") || name.Contains("global") || name.Contains("main"))
-                {
-                    backgroundLight = light;
-                    Debug.Log($"Auto-found background light: {light.name}");
-                    break;
-                }
-            }
-        }
-        
-        // Set initial light intensity based on starting stage
-        if (backgroundLight != null)
-        {
-            backgroundLight.intensity = brightIntensity; // Start bright for main menu
-            Debug.Log($"Initialized background light intensity to {brightIntensity}");
-        }
-    }
-    
+
     void Update()
     {
-        // Handle input based on current stage
-        switch (currentStage)
+        HandleInput();
+    }
+    
+    void SetupDebugStyle()
+    {
+        debugStyle = new GUIStyle();
+        debugStyle.fontSize = 24;
+        debugStyle.normal.textColor = Color.white;
+        debugStyle.fontStyle = FontStyle.Bold;
+        debugStyle.alignment = TextAnchor.MiddleCenter;
+    }
+
+    void SetupButtonListeners()
+    {
+        if (startButton != null)
+            startButton.onClick.AddListener(StartGame);
+            
+        if (restartButton != null)
+            restartButton.onClick.AddListener(RestartGame);
+            
+        if (pauseButton != null)
+            pauseButton.onClick.AddListener(PauseGame);
+            
+        if (resumeButton != null)
+            resumeButton.onClick.AddListener(ResumeGame);
+            
+        if (menuButton != null)
+            menuButton.onClick.AddListener(ReturnToMenu);
+            
+        if (creditsButton != null)
+            creditsButton.onClick.AddListener(ShowCredits);
+    }
+
+    void HandleInput()
+    {
+        // ESC key handling for all states
+        if (Input.GetKeyDown(KeyCode.Escape))
         {
-            case GameStage.MainMenu:
-                // No special input handling needed, button handles start
+            if (currentState == GameState.Pause)
+            {
+                ResumeFromPause();
+            }
+            else if (currentState != GameState.Pause)
+            {
+                PauseFromState();
+            }
+            return;
+        }
+        
+        switch (currentState)
+        {
+            case GameState.Menu:
+                if (Input.GetKeyDown(KeyCode.Space))
+                {
+                    StartGame();
+                }
+                else if (Input.GetKeyDown(KeyCode.C))
+                {
+                    ShowCredits();
+                }
                 break;
                 
-            case GameStage.Playing:
-                if (useTimer && gameActive)
-                {
-                    UpdateTimer();
-                }
-                
-                // Pause game with Escape
-                if (Input.GetKeyDown(KeyCode.Escape))
+            case GameState.Game:
+                if (Input.GetKeyDown(KeyCode.P))
                 {
                     PauseGame();
                 }
                 break;
                 
-            case GameStage.Paused:
-                // Resume with Escape
-                if (Input.GetKeyDown(KeyCode.Escape))
+            case GameState.Pause:
+                if (Input.GetKeyDown(KeyCode.P))
                 {
                     ResumeGame();
                 }
+                else if (Input.GetKeyDown(KeyCode.R))
+                {
+                    RestartGame();
+                }
+                else if (Input.GetKeyDown(KeyCode.M))
+                {
+                    ReturnToMenu();
+                }
                 break;
                 
-            case GameStage.GameOver:
-                // Game over input handled by restart button
+            case GameState.GameEnd:
+                if (Input.GetKeyDown(KeyCode.R))
+                {
+                    RestartGame();
+                }
+                else if (Input.GetKeyDown(KeyCode.M))
+                {
+                    ReturnToMenu();
+                }
                 break;
+                
+            case GameState.Credits:
+                if (Input.GetKeyDown(KeyCode.M))
+                {
+                    ReturnToMenu();
+                }
+                break;
+        }
+        
+        // Test shortcut to end game
+        if (currentState == GameState.Game && Input.GetKeyDown(KeyCode.E))
+        {
+            EndGame();
         }
     }
     
-    void SetGameStage(GameStage newStage)
+
+    public void SetState(GameState newState)
     {
-        currentStage = newStage;
-        UpdateUIVisibility();
+        if (currentState == newState) return;
         
-        switch (newStage)
-        {
-            case GameStage.MainMenu:
-                gameActive = false;
-                Time.timeScale = 1f;
-                break;
-                
-            case GameStage.Credits:
-                gameActive = false;
-                Time.timeScale = 1f;
-                break;
-                
-            case GameStage.Playing:
-                gameActive = true;
-                Time.timeScale = 1f;
-                break;
-                
-            case GameStage.Paused:
-                gameActive = false;
-                Time.timeScale = 0f;
-                break;
-                
-            case GameStage.GameOver:
-                gameActive = false;
-                Time.timeScale = 1f; // Don't pause time in game over
-                break;
-        }
+        Debug.Log($"State changed from {currentState} to {newState}");
+        previousState = currentState;
+        currentState = newState;
+        OnStateChanged(newState);
     }
     
-    void UpdateUIVisibility()
+    void OnStateChanged(GameState newState)
     {
-        Debug.Log($"UpdateUIVisibility - Current Stage: {currentStage}");
-        
-        // Background Light - bright during gameplay, dim during UI states
-        if (backgroundLight != null)
+        // Only Menu and Game states run at normal time, others are paused
+        if (newState == GameState.Menu || newState == GameState.Game)
         {
-            bool shouldBeBright = currentStage == GameStage.Playing;
-            FadeBackgroundLight(shouldBeBright);
+            Time.timeScale = 1f;
+        }
+        else
+        {
+            Time.timeScale = 0f;
         }
         
-        // Main Menu UI
-        if (startButton != null)
-        {
-            bool shouldShow = currentStage == GameStage.MainMenu;
-            startButton.gameObject.SetActive(shouldShow);
-            Debug.Log($"Start Button: {(shouldShow ? "SHOWN" : "HIDDEN")}");
-        }
-        if (creditButton != null)
-        {
-            bool shouldShow = currentStage == GameStage.MainMenu;
-            creditButton.gameObject.SetActive(shouldShow);
-            Debug.Log($"Credit Button: {(shouldShow ? "SHOWN" : "HIDDEN")}");
-        }
-        if (titleText != null)
-            titleText.gameObject.SetActive(currentStage == GameStage.MainMenu);
-        
-        // Credits UI
-        if (creditsPanel != null)
-            creditsPanel.SetActive(currentStage == GameStage.Credits);
-        if (backButton != null)
-            backButton.gameObject.SetActive(currentStage == GameStage.Credits);
-        
-        // Gameplay UI
-        if (combinedScoreText != null)
-            combinedScoreText.gameObject.SetActive(currentStage == GameStage.Playing);
-        if (timerText != null)
-            timerText.gameObject.SetActive(currentStage == GameStage.Playing);
-        
-        // Pause Menu UI
-        if (pauseMenu != null)
-            pauseMenu.SetActive(currentStage == GameStage.Paused);
-        if (tutorialText != null)
-            tutorialText.gameObject.SetActive(currentStage == GameStage.Paused);
-        
-        // Game Over UI
-        if (gameOverImage != null)
-            gameOverImage.gameObject.SetActive(currentStage == GameStage.GameOver);
-        if (winnerImage != null)
-            winnerImage.gameObject.SetActive(currentStage == GameStage.GameOver);
-        if (restartButton != null)
-            restartButton.gameObject.SetActive(currentStage == GameStage.GameOver);
+        UpdateUIPanels();
     }
-    
+
+
+
+    void UpdateUIPanels()
+    {
+        for (int i = 0; i < uiPanels.Length; i++)
+        {
+            if (uiPanels[i] != null)
+            {
+                uiPanels[i].SetActive((int)currentState == i);
+            }
+        }
+    }
+
+
     public void StartGame()
     {
-        // Reset game state
-        player1Score = 0;
-        player2Score = 0;
-        currentTime = matchTime;
-        
-        // Start playing
-        SetGameStage(GameStage.Playing);
-        UpdateUI();
-        
-        // Spawn ball if there's a spawner
-        BallSpawner spawner = FindFirstObjectByType<BallSpawner>();
-        if (spawner != null)
-        {
-            spawner.DestroyAllBalls();
-            spawner.SpawnBall();
-        }
-        
-        Debug.Log("Game Started!");
+        SetState(GameState.Game);
     }
     
     public void PauseGame()
     {
-        if (currentStage == GameStage.Playing)
+        if (currentState == GameState.Game)
         {
-            SetGameStage(GameStage.Paused);
-            Debug.Log("Game Paused");
+            SetState(GameState.Pause);
         }
     }
     
     public void ResumeGame()
     {
-        if (currentStage == GameStage.Paused)
+        if (currentState == GameState.Pause)
         {
-            SetGameStage(GameStage.Playing);
-            Debug.Log("Game Resumed");
+            SetState(GameState.Game);
         }
-    }
-    
-    void UpdateTimer()
-    {
-        currentTime -= Time.deltaTime;
-        
-        if (currentTime <= 0)
-        {
-            currentTime = 0;
-            EndGameByTime();
-        }
-        
-        UpdateTimerUI();
-    }
-    
-    void UpdateTimerUI()
-    {
-        if (timerText == null) return;
-        
-        int minutes = Mathf.FloorToInt(currentTime / 60);
-        int seconds = Mathf.FloorToInt(currentTime % 60);
-        
-        timerText.SetText(string.Format("{0:00}:{1:00}", minutes, seconds));
-        
-        if (currentTime <= 10f)
-        {
-            timerText.SetColor(Color.red);
-        }
-        else if (currentTime <= 30f)
-        {
-            timerText.SetColor(Color.yellow);
-        }
-        else
-        {
-            timerText.SetColor(Color.white);
-        }
-    }
-    
-    public void PlayerScored(int playerNumber)
-    {
-        if (!gameActive || currentStage != GameStage.Playing) return;
-        
-        if (playerNumber == 1)
-        {
-            player1Score++;
-            Debug.Log($"Player 1 scored! Score: {player1Score} - {player2Score}");
-        }
-        else if (playerNumber == 2)
-        {
-            player2Score++;
-            Debug.Log($"Player 2 scored! Score: {player1Score} - {player2Score}");
-        }
-        
-        UpdateUI();
-        
-        // Trigger flash animation for the scoring player
-        if (combinedScoreText != null && combinedScoreText.yellowFlash)
-        {
-            combinedScoreText.TriggerFlash(playerNumber);
-        }
-        
-        if (player1Score >= winningScore || player2Score >= winningScore)
-        {
-            EndGameByScore();
-        }
-    }
-    
-    void UpdateUI()
-    {
-        if (combinedScoreText != null)
-            combinedScoreText.SetText($"{player1Score} : {player2Score}");
-    }
-    
-    void EndGameByScore()
-    {
-        int winningPlayer = player1Score >= winningScore ? 1 : 2;
-        string winner = winningPlayer == 1 ? "Player 1" : "Player 2";
-        
-        Debug.Log($"Game Over! {winner} wins with {winningScore} goals!");
-        
-        ShowGameOver($"{winner} Wins!", winningPlayer);
-    }
-    
-    void EndGameByTime()
-    {
-        int winningPlayer;
-        string result;
-        
-        if (player1Score > player2Score)
-        {
-            winningPlayer = 1;
-            result = "Player 1 Wins!";
-        }
-        else if (player2Score > player1Score)
-        {
-            winningPlayer = 2;
-            result = "Player 2 Wins!";
-        }
-        else
-        {
-            winningPlayer = 0; // Draw
-            result = "It's a Draw!";
-        }
-        
-        Debug.Log($"Time's up! {result} Final Score: {player1Score} - {player2Score}");
-        
-        ShowGameOver("Time's Up!", winningPlayer);
-    }
-    
-    void ShowGameOver(string gameOverMessage, int winningPlayer)
-    {
-        SetGameStage(GameStage.GameOver);
-        
-        if (gameOverImage != null)
-        {
-            SetGameOverImage(gameOverMessage);
-        }
-        
-        if (winnerImage != null)
-        {
-            SetWinnerImage(winningPlayer);
-        }
-    }
-    
-    void SetGameOverImage(string gameOverMessage)
-    {
-        if (gameOverImage == null) return;
-        
-        Sprite spriteToShow = null;
-        
-        if (gameOverMessage.Contains("Time's Up"))
-        {
-            spriteToShow = timeUpSprite;
-            Debug.Log("Showing Time's Up message image");
-        }
-        else
-        {
-            spriteToShow = gameOverSprite;
-            Debug.Log("Showing Game Over message image");
-        }
-        
-        if (spriteToShow != null)
-        {
-            gameOverImage.sprite = spriteToShow;
-            gameOverImage.gameObject.SetActive(true);
-        }
-        else
-        {
-            Debug.LogWarning($"No sprite assigned for game over message: {gameOverMessage}");
-            gameOverImage.gameObject.SetActive(false);
-        }
-    }
-    
-    void SetWinnerImage(int winningPlayer)
-    {
-        if (winnerImage == null) return;
-        
-        Sprite spriteToShow = null;
-        
-        switch (winningPlayer)
-        {
-            case 1:
-                spriteToShow = player1WinSprite;
-                Debug.Log("Showing Player 1 win image");
-                break;
-            case 2:
-                spriteToShow = player2WinSprite;
-                Debug.Log("Showing Player 2 win image");
-                break;
-            case 0:
-            default:
-                spriteToShow = drawSprite;
-                Debug.Log("Showing draw image");
-                break;
-        }
-        
-        if (spriteToShow != null)
-        {
-            winnerImage.sprite = spriteToShow;
-            winnerImage.gameObject.SetActive(true);
-        }
-        else
-        {
-            Debug.LogWarning($"No sprite assigned for winning player {winningPlayer}");
-            winnerImage.gameObject.SetActive(false);
-        }
-    }
-    
-    public void ShowCredits()
-    {
-        SetGameStage(GameStage.Credits);
-        Debug.Log("Showing Credits");
-    }
-    
-    public void BackToMainMenu()
-    {
-        SetGameStage(GameStage.MainMenu);
-        Debug.Log("Back to Main Menu");
     }
     
     public void RestartGame()
     {
-        SetGameStage(GameStage.MainMenu);
-        Debug.Log("Returned to Main Menu");
+        SetState(GameState.Game);
     }
     
-    void FadeBackgroundLight(bool shouldBeBright)
+    public void EndGame()
     {
-        if (backgroundLight == null) return;
-        
-        float targetIntensity = shouldBeBright ? brightIntensity : dimIntensity;
-        
-        if (lightFadeCoroutine != null)
+        if (currentState == GameState.Game)
         {
-            StopCoroutine(lightFadeCoroutine);
+            SetState(GameState.GameEnd);
         }
-        
-        lightFadeCoroutine = StartCoroutine(FadeLightIntensity(targetIntensity));
     }
     
-    private System.Collections.IEnumerator FadeLightIntensity(float targetIntensity)
+    public void ReturnToMenu()
     {
-        if (backgroundLight == null) yield break;
-        
-        float startIntensity = backgroundLight.intensity;
-        float elapsedTime = 0f;
-        
-        while (elapsedTime < lightFadeDuration)
-        {
-            elapsedTime += Time.unscaledDeltaTime;
-            float progress = elapsedTime / lightFadeDuration;
-            
-            // Smooth fade using ease-in-out curve
-            float smoothProgress = progress * progress * (3f - 2f * progress);
-            
-            backgroundLight.intensity = Mathf.Lerp(startIntensity, targetIntensity, smoothProgress);
-            yield return null;
-        }
-        
-        backgroundLight.intensity = targetIntensity;
-        lightFadeCoroutine = null;
-        
-        Debug.Log($"Light fade completed. Intensity: {targetIntensity}");
+        SetState(GameState.Menu);
     }
     
+    public void ShowCredits()
+    {
+        SetState(GameState.Credits);
+    }
+    
+    public void PauseFromState()
+    {
+        if (currentState != GameState.Pause)
+        {
+            SetState(GameState.Pause);
+        }
+    }
+    
+    public void ResumeFromPause()
+    {
+        if (currentState == GameState.Pause && previousState != GameState.Pause)
+        {
+            SetState(previousState);
+        }
+    }
+
     void OnGUI()
     {
-        // Show debug info
-        GUI.Label(new Rect(10, 10, 200, 30), $"Stage: {currentStage}");
+        if (!showDebugUI) return;
         
-        if (currentStage == GameStage.Playing)
-        {
-            GUI.Label(new Rect(10, 30, 200, 30), "ESC: Pause");
-        }
-        else if (currentStage == GameStage.Paused)
-        {
-            GUI.Label(new Rect(10, 30, 200, 30), "ESC: Resume");
-        }
+        string debugInfo = $"Current State: {currentState}";
+        GUI.Label(new Rect(10, 10, 300, 50), debugInfo, debugStyle);
+    }
+    
+    public GameState GetCurrentState()
+    {
+        return currentState;
     }
 }
