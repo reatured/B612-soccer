@@ -128,8 +128,7 @@ public class Player : MonoBehaviour
             moveInput = 1f;
         }
         
-        if (playerNumber == 2)
-            moveInput = -moveInput;
+
         
         bool wasMoving = isMoving;
         isMoving = Mathf.Abs(moveInput) > 0.1f && isGrounded;
@@ -176,14 +175,9 @@ public class Player : MonoBehaviour
         Vector2 directionToPlanet = ((Vector2)planet.center.position - (Vector2)transform.position).normalized;
         Vector2 tangentDirection;
         
-        if (playerNumber == 1)
-        {
-            tangentDirection = new Vector2(-directionToPlanet.y, directionToPlanet.x) * direction;
-        }
-        else
-        {
-            tangentDirection = new Vector2(directionToPlanet.y, -directionToPlanet.x) * direction;
-        }
+
+        tangentDirection = new Vector2(-directionToPlanet.y, directionToPlanet.x) * direction;
+        
         
         Vector2 targetVelocity = tangentDirection * moveSpeed;
         
@@ -325,7 +319,7 @@ public class Player : MonoBehaviour
     
     void FlipSprite(float moveDirection)
     {
-        bool shouldFaceRight = moveDirection > 0;
+        bool shouldFaceRight = moveDirection < 0;
         
         if (shouldFaceRight != facingRight)
         {
